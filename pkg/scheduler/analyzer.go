@@ -72,6 +72,9 @@ func (a *Analyzer) DiagnoseNode(node nodes.Node) *Report {
 	untolerateTaints := checkTaints(a.TargetConditions.Toleration, node.Node.Spec.Taints)
 
 	unMatchVolumeAffinity := CheckVolumeNodeAffinity(a.TargetConditions.PersistentVolumeAffinity, node.Labels)
+
+	meetResource := nodes.CompareResource(node.AllocatedResourceMap, a.TargetConditions.ResourceRequirement)
+
 }
 
 func (a *Analyzer) GetRelatedPVAffinity(pod *v1.Pod) []*v1.VolumeNodeAffinity {
