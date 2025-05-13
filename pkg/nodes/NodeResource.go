@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
+	"github.com/ops-tool/pkg/scheduler/framework/interpodaffinity"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,6 +55,28 @@ type Node struct {
 	Name                 string
 	AllocatedResourceMap ResourceList
 	v1.Node
+
+	Pods             []*interpodaffinity.PodInfo
+	PodsWithAffinity []*interpodaffinity.PodInfo
+
+	// The subset of pods with required anti-affinity.
+	PodsWithRequiredAntiAffinity []*interpodaffinity.PodInfo
+}
+
+func (n *Node) AddPodInfo(podInfo *interpodaffinity.PodInfo) {
+	n.Pods = append(n.Pods, podInfo)
+	if interpodaffinity.PodWithAffinity(podInfo.Pod) {
+		n.PodsWithAffinity = append(n.PodsWithAffinity, podInfo)
+	}
+	if interpodaffinity.PodWithRequiredAntiAffinity(podInfo.Pod) {
+		n.PodsWithRequiredAntiAffinity = append(n.PodsWithRequiredAntiAffinity, podInfo)
+	}
+}
+func (n *Node) AddPod(pod *v1.Pod) {
+	// ignore this err since apiserver doesn't properly validate affinity terms
+	// and we can't fix the validation for backwards compatibility.
+	podInfo, _ := interpodaffinity.NewPodInfo(pod)
+	n.AddPodInfo(podInfo)
 }
 
 func (nr *Node) String() []string {
@@ -121,6 +144,17 @@ func (n *NodeResourceReporter) GetNodeResource() error {
 
 	return nil
 }
+func (n *Node) SetNode(node *v1.Node) {
+	n.Node = *node
+}
+
+func NewNodeInfo(pods ...*v1.Pod) *Node {
+	ni := &Node{}
+	for _, pod := range pods {
+		ni.AddPod(pod)
+	}
+	return ni
+}
 
 func (n *NodeResourceReporter) BuildNodeList() (NodeList, error) {
 	nodes, err := n.ClientSet.CoreV1().Nodes().List(context.TODO(), metaV1.ListOptions{})
@@ -138,11 +172,27 @@ func (n *NodeResourceReporter) BuildNodeList() (NodeList, error) {
 			continue
 		}
 
-		nodeResourceList = append(nodeResourceList, Node{
+		fieldSelector := fmt.Sprintf("spec.nodeName=%s", node.Name)
+		pods, err := n.ClientSet.CoreV1().Pods("").List(context.TODO(), metaV1.ListOptions{
+			FieldSelector: fieldSelector,
+		})
+
+		if err != nil {
+			fmt.Printf("error fetching pods on node  %s\n", node.Name)
+			continue
+		}
+
+		nodeInfo := Node{
 			Name:                 node.Name,
 			AllocatedResourceMap: allocatedResourceMap,
 			Node:                 node,
-		})
+		}
+
+		for _, pod := range pods.Items {
+			nodeInfo.AddPod(&pod)
+		}
+
+		nodeResourceList = append(nodeResourceList, nodeInfo)
 	}
 
 	return nodeResourceList, nil

@@ -46,7 +46,7 @@ func (a *Analyzer) Why() error {
 		Affinity:                 pod.Spec.Affinity,
 		ResourceRequirement:      BuildResourceList(pod),
 		Toleration:               pod.Spec.Tolerations,
-		PersistentVolumeAffinity: a.GetRelatedPVAffinity(pod),
+		PersistentVolumeAffinity: a.BuildPVAffinity(pod),
 	}
 
 	nodeList, err := a.NodeResourceReporter.BuildNodeList()
@@ -67,17 +67,19 @@ func (a *Analyzer) Why() error {
 
 func (a *Analyzer) DiagnoseNode(node nodes.Node) *Report {
 
+	nodeUnschedulable := checkUnSchedulableNode(a.TargetConditions.Toleration, node)
+
 	notMeetSelector := checkNodeSelector(a.TargetConditions.NodeSelector, node.Node.Labels)
 
 	untolerateTaints := checkTaints(a.TargetConditions.Toleration, node.Node.Spec.Taints)
 
-	notMatchVolumeAffinity := CheckVolumeNodeAffinity(a.TargetConditions.PersistentVolumeAffinity, node.Labels)
+	notMatchVolumeAffinity := checkVolumeNodeAffinity(a.TargetConditions.PersistentVolumeAffinity, node.Labels)
 
 	notMeetResource := checkResource(node.AllocatedResourceMap, a.TargetConditions.ResourceRequirement)
 
 }
 
-func (a *Analyzer) GetRelatedPVAffinity(pod *v1.Pod) []*v1.VolumeNodeAffinity {
+func (a *Analyzer) BuildPVAffinity(pod *v1.Pod) []*v1.VolumeNodeAffinity {
 
 	var pvcNames []string
 	var pvAffinity []*v1.VolumeNodeAffinity

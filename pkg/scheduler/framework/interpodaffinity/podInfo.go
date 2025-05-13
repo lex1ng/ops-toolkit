@@ -187,3 +187,14 @@ func getNamespacesFromPodAffinityTerm(pod *v1.Pod, podAffinityTerm *v1.PodAffini
 	}
 	return names
 }
+
+func PodWithAffinity(p *v1.Pod) bool {
+	affinity := p.Spec.Affinity
+	return affinity != nil && (affinity.PodAffinity != nil || affinity.PodAntiAffinity != nil)
+}
+
+func PodWithRequiredAntiAffinity(p *v1.Pod) bool {
+	affinity := p.Spec.Affinity
+	return affinity != nil && affinity.PodAntiAffinity != nil &&
+		len(affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution) != 0
+}

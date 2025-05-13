@@ -51,6 +51,25 @@ func checkTaints(tolerations []corev1.Toleration, taints []corev1.Taint) []corev
 
 }
 
+func checkUnSchedulableNode(toleration []corev1.Toleration, node nodes.Node) string {
+
+	if !node.Spec.Unschedulable {
+		return "node unSchedulable"
+	}
+
+	// If pod tolerate unschedulable taint, it's also tolerate `node.Spec.Unschedulable`.
+	podToleratesUnschedulable := componenthelpers.TolerationsTolerateTaint(toleration, &corev1.Taint{
+		Key:    corev1.TaintNodeUnschedulable,
+		Effect: corev1.TaintEffectNoSchedule,
+	})
+	if !podToleratesUnschedulable {
+		return "node unSchedulable"
+	}
+
+	return ""
+
+}
+
 func checkAffinity(affinity *corev1.Affinity, node nodes.Node) {
 
 	if affinity == nil {
@@ -118,7 +137,7 @@ func checkNodeAffinity(nodeAffinity *corev1.NodeAffinity, node nodes.Node) (bool
 	return NodeAffinityMatches, nil
 
 }
-func CheckVolumeNodeAffinity(volumeNodeAffinities []*corev1.VolumeNodeAffinity, nodeLabels map[string]string) []*corev1.VolumeNodeAffinity {
+func checkVolumeNodeAffinity(volumeNodeAffinities []*corev1.VolumeNodeAffinity, nodeLabels map[string]string) []*corev1.VolumeNodeAffinity {
 	var notMatchNodeAffinity []*corev1.VolumeNodeAffinity
 	for _, volumeNodeAffinity := range volumeNodeAffinities {
 		if volumeNodeAffinity == nil {
