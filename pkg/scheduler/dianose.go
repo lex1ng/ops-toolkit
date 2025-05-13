@@ -28,10 +28,10 @@ func checkNodeSelector(selector, nodeLabels map[string]string) []string {
 
 func checkTaints(tolerations []corev1.Toleration, taints []corev1.Taint) []corev1.Taint {
 
-	var untolerateTaints []corev1.Taint
+	var untolerableTaints []corev1.Taint
 
 	if taints == nil || len(taints) == 0 {
-		return untolerateTaints
+		return untolerableTaints
 	}
 
 	for _, taint := range taints {
@@ -43,11 +43,11 @@ func checkTaints(tolerations []corev1.Toleration, taints []corev1.Taint) []corev
 			}
 		}
 		if !tolerate {
-			untolerateTaints = append(untolerateTaints, taint)
+			untolerableTaints = append(untolerableTaints, taint)
 		}
 	}
 
-	return untolerateTaints
+	return untolerableTaints
 
 }
 
@@ -119,7 +119,7 @@ func checkNodeAffinity(nodeAffinity *corev1.NodeAffinity, node nodes.Node) (bool
 
 }
 func CheckVolumeNodeAffinity(volumeNodeAffinities []*corev1.VolumeNodeAffinity, nodeLabels map[string]string) []*corev1.VolumeNodeAffinity {
-	var noMatchNodeAffinity []*corev1.VolumeNodeAffinity
+	var notMatchNodeAffinity []*corev1.VolumeNodeAffinity
 	for _, volumeNodeAffinity := range volumeNodeAffinities {
 		if volumeNodeAffinity == nil {
 			continue
@@ -131,10 +131,31 @@ func CheckVolumeNodeAffinity(volumeNodeAffinities []*corev1.VolumeNodeAffinity, 
 			if matches, err := componenthelpers.MatchNodeSelectorTerms(node, terms); err != nil {
 				fmt.Printf("check match node selector terms on node %s error: %v", volumeNodeAffinity.Required)
 			} else if !matches {
-				noMatchNodeAffinity = append(noMatchNodeAffinity, volumeNodeAffinity)
+				notMatchNodeAffinity = append(notMatchNodeAffinity, volumeNodeAffinity)
 			}
 		}
 	}
 
-	return noMatchNodeAffinity
+	return notMatchNodeAffinity
+}
+
+func checkResource(have, want nodes.ResourceList) []string {
+
+	var notMeetResource []string
+	for k, v := range want {
+		reason := ""
+		if h, ok := have[k]; !ok {
+			reason = fmt.Sprintf("want %v: %s, have 0", v.Requests, k)
+		} else {
+			if h.Requests+v.Requests > h.Capacity {
+				reason = fmt.Sprintf("want %v: %s, have %v", v.Requests, k, h.Capacity-h.Requests)
+			}
+		}
+		if reason != "" {
+			notMeetResource = append(notMeetResource, reason)
+		}
+	}
+
+	return notMeetResource
+
 }

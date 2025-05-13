@@ -71,9 +71,9 @@ func (a *Analyzer) DiagnoseNode(node nodes.Node) *Report {
 
 	untolerateTaints := checkTaints(a.TargetConditions.Toleration, node.Node.Spec.Taints)
 
-	unMatchVolumeAffinity := CheckVolumeNodeAffinity(a.TargetConditions.PersistentVolumeAffinity, node.Labels)
+	notMatchVolumeAffinity := CheckVolumeNodeAffinity(a.TargetConditions.PersistentVolumeAffinity, node.Labels)
 
-	meetResource := nodes.CompareResource(node.AllocatedResourceMap, a.TargetConditions.ResourceRequirement)
+	notMeetResource := checkResource(node.AllocatedResourceMap, a.TargetConditions.ResourceRequirement)
 
 }
 
