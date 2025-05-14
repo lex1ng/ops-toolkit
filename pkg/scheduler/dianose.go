@@ -1,9 +1,8 @@
 package scheduler
 
 import (
-	"context"
 	"fmt"
-	"github.com/ops-tool/pkg/nodes"
+	"github.com/ops-tool/pkg/scheduler/framework"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	componenthelpers "k8s.io/component-helpers/scheduling/corev1"
@@ -11,11 +10,12 @@ import (
 	"strings"
 )
 
-func checkNodeSelector(selector, nodeLabels map[string]string) []string {
+func (a *Analyzer) checkNodeSelector(nodeLabels map[string]string) string {
+	selector := a.TargetConditions.NodeSelector
 	// noSelector: meet
 	var notMeetSelector []string
 	if selector == nil {
-		return notMeetSelector
+		return ""
 	}
 
 	for k, v := range selector {
@@ -23,15 +23,16 @@ func checkNodeSelector(selector, nodeLabels map[string]string) []string {
 			notMeetSelector = append(notMeetSelector, strings.Join([]string{k, v}, ":"))
 		}
 	}
-	return notMeetSelector
+
+	return strings.Join(notMeetSelector, "\n")
 }
 
-func checkTaints(tolerations []corev1.Toleration, taints []corev1.Taint) []corev1.Taint {
-
-	var untolerableTaints []corev1.Taint
+func (a *Analyzer) checkTaints(taints []corev1.Taint) string {
+	tolerations := a.TargetConditions.Toleration
+	var untolerableTaints []string
 
 	if taints == nil || len(taints) == 0 {
-		return untolerableTaints
+		return ""
 	}
 
 	for _, taint := range taints {
@@ -43,16 +44,16 @@ func checkTaints(tolerations []corev1.Toleration, taints []corev1.Taint) []corev
 			}
 		}
 		if !tolerate {
-			untolerableTaints = append(untolerableTaints, taint)
+			untolerableTaints = append(untolerableTaints, taint.String())
 		}
 	}
 
-	return untolerableTaints
+	return strings.Join(untolerableTaints, "\n")
 
 }
 
-func checkUnSchedulableNode(toleration []corev1.Toleration, node nodes.Node) string {
-
+func (a *Analyzer) checkUnSchedulableNode(node *corev1.Node) string {
+	toleration := a.TargetConditions.Toleration
 	if !node.Spec.Unschedulable {
 		return "node unSchedulable"
 	}
@@ -70,75 +71,36 @@ func checkUnSchedulableNode(toleration []corev1.Toleration, node nodes.Node) str
 
 }
 
-func checkAffinity(affinity *corev1.Affinity, node nodes.Node) {
-
-	if affinity == nil {
-		return
-	}
-	podAffinity := affinity.PodAffinity
-	podAntiAffinity := affinity.PodAntiAffinity
-
-	nodeAffinityMatch, err := checkNodeAffinity(affinity.NodeAffinity, node)
-	if err != nil {
-		return
-	}
-
-}
-
-func (a *Analyzer) checkPodAffinity(podAffinity *corev1.PodAffinity, node nodes.Node, namespace string) (bool, error) {
-	//if podAffinity == nil {
-	//	return true, nil
-	//}
-	//if podAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil || len(podAffinity.RequiredDuringSchedulingIgnoredDuringExecution) == 0 {
-	//	return true, nil
-	//}
-
-	//topologyValue := node.Node.Labels[podAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0].TopologyKey]
-	//
-	//pods, err := a.ClientSet.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
-	//	FieldSelector: "spec.Name=" + node.Name,
-	//})
-	//
-	//if err != nil {
-	//	return false, fmt.Errorf("get pod list when check pod affinity of node %s error: %v", node.Name, err)
-	//}
-	//
-	//for _, term := range podAffinity.RequiredDuringSchedulingIgnoredDuringExecution {
-	//	for _, pod := range pods.Items {
-	//		if metav1.A(&pod, term.LabelSelector) {
-	//			return true
-	//		}
-	//	}
-	//}
-
-	return false, nil
-}
-
-func checkNodeAffinity(nodeAffinity *corev1.NodeAffinity, node nodes.Node) (bool, error) {
+func checkNodeAffinity(nodeAffinity *corev1.NodeAffinity, node *corev1.Node) (string, error) {
 	if nodeAffinity == nil {
-		return true, nil
+		return "", nil
 	}
 	nodeAffinityRequired := nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
 
 	if nodeAffinityRequired == nil {
-		return true, nil
+		return "", nil
 	}
 
 	tmpNode := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Labels: node.Labels}}
-	NodeAffinityMatches := true
-	if matches, err := componenthelpers.MatchNodeSelectorTerms(tmpNode, nodeAffinityRequired); err != nil {
+
+	matches, err := componenthelpers.MatchNodeSelectorTerms(tmpNode, nodeAffinityRequired)
+	if err != nil {
 		fmt.Printf("check match node selector terms on node %s error: %v", nodeAffinityRequired)
-		return false, err
-	} else if !matches {
-		NodeAffinityMatches = false
-		fmt.Printf("node %s not match node selector terms %v", node.Name, nodeAffinityRequired)
+		return "", err
 	}
 
-	return NodeAffinityMatches, nil
+	if matches {
+		fmt.Printf("node %s  match node selector terms %s", node.Name, nodeAffinityRequired.String())
+		return "", nil
+	}
+
+	fmt.Printf("node %s not match node selector terms %v", node.Name, nodeAffinityRequired)
+	return fmt.Sprintf("don't match node affinity: %s", nodeAffinityRequired.String()), nil
 
 }
-func checkVolumeNodeAffinity(volumeNodeAffinities []*corev1.VolumeNodeAffinity, nodeLabels map[string]string) []*corev1.VolumeNodeAffinity {
-	var notMatchNodeAffinity []*corev1.VolumeNodeAffinity
+func (a *Analyzer) checkVolumeNodeAffinity(nodeLabels map[string]string) string {
+	volumeNodeAffinities := a.TargetConditions.PersistentVolumeAffinity
+	var notMatchNodeAffinity []string
 	for _, volumeNodeAffinity := range volumeNodeAffinities {
 		if volumeNodeAffinity == nil {
 			continue
@@ -150,15 +112,21 @@ func checkVolumeNodeAffinity(volumeNodeAffinities []*corev1.VolumeNodeAffinity, 
 			if matches, err := componenthelpers.MatchNodeSelectorTerms(node, terms); err != nil {
 				fmt.Printf("check match node selector terms on node %s error: %v", volumeNodeAffinity.Required)
 			} else if !matches {
-				notMatchNodeAffinity = append(notMatchNodeAffinity, volumeNodeAffinity)
+				notMatchNodeAffinity = append(notMatchNodeAffinity, volumeNodeAffinity.String())
 			}
 		}
 	}
 
-	return notMatchNodeAffinity
+	return strings.Join(notMatchNodeAffinity, "\n")
 }
 
-func checkResource(have, want nodes.ResourceList) []string {
+func (a *Analyzer) checkResource(node *corev1.Node) string {
+	want := a.TargetConditions.ResourceRequirement
+	have, err := framework.BuildAllocatedResourceMap(a.ClientSet, node)
+
+	if err != nil {
+		return "cannot build node allocated resource"
+	}
 
 	var notMeetResource []string
 	for k, v := range want {
@@ -175,6 +143,18 @@ func checkResource(have, want nodes.ResourceList) []string {
 		}
 	}
 
-	return notMeetResource
+	return strings.Join(notMeetResource, "\n")
+
+}
+
+func (a *Analyzer) checkAffinity(node *corev1.Node) string {
+	podAffinityReason, err := a.interPodAffinityPlugin.Filter(a.targetPod, node)
+	if err != nil {
+		return fmt.Sprintf("check affinity error %s", err.Error())
+	}
+
+	nodeAffinityReason, err := checkNodeAffinity(a.TargetConditions.Affinity.NodeAffinity, node)
+
+	return strings.Join([]string{podAffinityReason, nodeAffinityReason}, "\n")
 
 }

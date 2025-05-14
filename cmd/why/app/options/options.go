@@ -1,7 +1,6 @@
 package options
 
 import (
-	"github.com/ops-tool/pkg/nodes"
 	"github.com/ops-tool/pkg/scheduler"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -29,13 +28,11 @@ func (o *WhyFailedOptions) NewAnalyzer() (*scheduler.Analyzer, error) {
 		return nil, err
 	}
 
-	return &scheduler.Analyzer{
-		ClientSet: clientset,
-		Namespace: o.Namespace,
-		PodName:   o.PodName,
-		NodeResourceReporter: nodes.NodeResourceReporter{
-			ClientSet: clientset,
-		},
-	}, nil
+	analyzer, err := scheduler.NewAnalyzer(clientset, o.Namespace, o.PodName)
+	if err != nil {
+		return nil, err
+	}
+
+	return analyzer, nil
 
 }
