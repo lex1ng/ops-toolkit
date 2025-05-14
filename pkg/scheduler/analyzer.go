@@ -139,7 +139,7 @@ func BuildPVAffinity(clientset *kubernetes.Clientset, pod *v1.Pod) []*v1.VolumeN
 	var pvcNames []string
 	var pvAffinity []*v1.VolumeNodeAffinity
 	for _, volume := range pod.Spec.Volumes {
-		if volume.PersistentVolumeClaim.ClaimName != "" {
+		if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.ClaimName != "" {
 			pvcNames = append(pvcNames, volume.PersistentVolumeClaim.ClaimName)
 		}
 	}

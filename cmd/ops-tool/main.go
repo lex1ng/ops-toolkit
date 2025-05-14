@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/ops-tool/cmd/getNodeResource"
 	"github.com/ops-tool/cmd/getPodResource"
+	"github.com/ops-tool/cmd/why"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/util/homedir"
 	"os"
@@ -24,6 +25,7 @@ func main() {
 
 	rootCmd.AddCommand(getNodeResource.NewGetNodeResourceCommand())
 	rootCmd.AddCommand(getPodResource.NewGetPodResourceCommand())
+	rootCmd.AddCommand(why.NewWhyCommand())
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

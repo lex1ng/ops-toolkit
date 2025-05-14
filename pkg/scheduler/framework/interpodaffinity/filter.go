@@ -320,7 +320,7 @@ func (pl *InterPodAffinity) preFilter(pod *v1.Pod) (*preFilterState, error) {
 	s.affinityCounts, s.antiAffinityCounts = pl.getIncomingAffinityAntiAffinityCounts(context.Background(), s.podInfo, pl.AllNodes)
 
 	if len(s.existingAntiAffinityCounts) == 0 && len(s.podInfo.RequiredAffinityTerms) == 0 && len(s.podInfo.RequiredAntiAffinityTerms) == 0 {
-		return nil, nil
+		return s, nil
 	}
 
 	return s, nil
@@ -348,6 +348,9 @@ func (pl *InterPodAffinity) Filter(pod *v1.Pod, node *v1.Node) (string, error) {
 func satisfyPodAffinity(state *preFilterState, nodeInfo *v1.Node) string {
 	podsExist := true
 	notInNodeTopologyKey := []string{"notSatisfy Pod Affinity:"}
+	if state.podInfo.RequiredAffinityTerms == nil || len(state.podInfo.RequiredAffinityTerms) == 0 {
+		return ""
+	}
 	for _, term := range state.podInfo.RequiredAffinityTerms {
 		if topologyValue, ok := nodeInfo.Labels[term.TopologyKey]; ok {
 			tp := topologyPair{key: term.TopologyKey, value: topologyValue}

@@ -57,7 +57,7 @@ func (a *Analyzer) checkTaints(taints []corev1.Taint) string {
 func (a *Analyzer) checkUnSchedulableNode(node *corev1.Node) string {
 	toleration := a.TargetConditions.Toleration
 	if !node.Spec.Unschedulable {
-		return "node unSchedulable"
+		return ""
 	}
 
 	// If pod tolerate unschedulable taint, it's also tolerate `node.Spec.Unschedulable`.
@@ -74,6 +74,9 @@ func (a *Analyzer) checkUnSchedulableNode(node *corev1.Node) string {
 }
 
 func (a *Analyzer) checkNodeAffinity(node *corev1.Node) string {
+	if a.TargetConditions.Affinity == nil || a.TargetConditions.Affinity.NodeAffinity == nil {
+		return ""
+	}
 	nodeAffinity := a.TargetConditions.Affinity.NodeAffinity
 	if nodeAffinity == nil {
 		return ""

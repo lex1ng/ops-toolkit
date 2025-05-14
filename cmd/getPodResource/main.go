@@ -9,8 +9,8 @@ func NewGetPodResourceCommand() *cobra.Command {
 	opts := options.NewPodResourceOptions()
 	cmd := &cobra.Command{
 		Use:          "getPodResource",
-		Short:        "An ops tool built by ops-tool team",
-		Long:         `An ops tool built by ops-tool team`,
+		Short:        "get Pod Resource",
+		Long:         `get Pod Resource`,
 		SilenceUsage: true,
 
 		RunE: func(cmd *cobra.Command, args []string) error {

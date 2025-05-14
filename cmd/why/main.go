@@ -9,8 +9,8 @@ func NewWhyCommand() *cobra.Command {
 	opts := options.NewWhyFailedOptions()
 	cmd := &cobra.Command{
 		Use:          "why podname -n namespace",
-		Short:        "",
-		Long:         `An ops tool built by ops-tool team`,
+		Short:        "show why pod cannot be scheduled",
+		Long:         `show why pod cannot be scheduled`,
 		SilenceUsage: true,
 
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -21,7 +21,7 @@ func NewWhyCommand() *cobra.Command {
 		Args: cobra.NoArgs,
 	}
 
-	cmd.Flags().StringVarP(&opts.Namespace, "namespace", "n", "", "get pod resource in specific namespace")
+	cmd.Flags().StringVarP(&opts.Namespace, "namespace", "n", "default", "get pod resource in specific namespace")
 	cmd.Flags().StringVar(&opts.PodName, "pod", "", "pod that unable to scheduler ")
 
 	return cmd
