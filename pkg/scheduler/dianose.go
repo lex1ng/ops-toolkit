@@ -3,6 +3,7 @@ package scheduler
 import (
 	"fmt"
 	"github.com/ops-tool/pkg/scheduler/framework"
+	"github.com/ops-tool/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	componenthelpers "k8s.io/component-helpers/scheduling/corev1"
@@ -19,7 +20,8 @@ func (a *Analyzer) checkNodeSelector(nodeLabels map[string]string) string {
 	}
 
 	for k, v := range selector {
-		if nodeLabels[k] != v {
+		nodeV, ok := nodeLabels[k]
+		if !ok || nodeV != v {
 			notMeetSelector = append(notMeetSelector, strings.Join([]string{k, v}, ":"))
 		}
 	}
@@ -44,10 +46,10 @@ func (a *Analyzer) checkTaints(taints []corev1.Taint) string {
 			}
 		}
 		if !tolerate {
-			untolerableTaints = append(untolerableTaints, taint.String())
+			fmt.Printf("untolerate taints: %s\n", util.ToJSONIndent(taint))
+			untolerableTaints = append(untolerableTaints, util.ToJSONIndent(taint))
 		}
 	}
-
 	return strings.Join(untolerableTaints, "\n")
 
 }
@@ -71,31 +73,31 @@ func (a *Analyzer) checkUnSchedulableNode(node *corev1.Node) string {
 
 }
 
-func checkNodeAffinity(nodeAffinity *corev1.NodeAffinity, node *corev1.Node) (string, error) {
+func (a *Analyzer) checkNodeAffinity(node *corev1.Node) string {
+	nodeAffinity := a.TargetConditions.Affinity.NodeAffinity
 	if nodeAffinity == nil {
-		return "", nil
+		return ""
 	}
 	nodeAffinityRequired := nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
 
 	if nodeAffinityRequired == nil {
-		return "", nil
+		return ""
 	}
 
 	tmpNode := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Labels: node.Labels}}
 
 	matches, err := componenthelpers.MatchNodeSelectorTerms(tmpNode, nodeAffinityRequired)
 	if err != nil {
-		fmt.Printf("check match node selector terms on node %s error: %v", nodeAffinityRequired)
-		return "", err
+		return fmt.Sprintf("check node affinity failed: %v", err)
 	}
 
 	if matches {
-		fmt.Printf("node %s  match node selector terms %s", node.Name, nodeAffinityRequired.String())
-		return "", nil
+		fmt.Printf("node %s match node selector terms %s", node.Name, nodeAffinityRequired.String())
+		return ""
 	}
 
-	fmt.Printf("node %s not match node selector terms %v", node.Name, nodeAffinityRequired)
-	return fmt.Sprintf("don't match node affinity: %s", nodeAffinityRequired.String()), nil
+	fmt.Printf("don't match node affinity: %s", util.ToJSON(nodeAffinityRequired))
+	return fmt.Sprintf("don't match node affinity: %s", util.ToJSON(nodeAffinityRequired))
 
 }
 func (a *Analyzer) checkVolumeNodeAffinity(nodeLabels map[string]string) string {
@@ -110,32 +112,26 @@ func (a *Analyzer) checkVolumeNodeAffinity(nodeLabels map[string]string) string 
 			node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Labels: nodeLabels}}
 			terms := volumeNodeAffinity.Required
 			if matches, err := componenthelpers.MatchNodeSelectorTerms(node, terms); err != nil {
-				fmt.Printf("check match node selector terms on node %s error: %v", volumeNodeAffinity.Required)
+				fmt.Printf("check match node selector terms on node %s error: %s", node.Name, util.ToJSONIndent(volumeNodeAffinity.Required))
 			} else if !matches {
-				notMatchNodeAffinity = append(notMatchNodeAffinity, volumeNodeAffinity.String())
+				fmt.Printf("not match volumeNodeAffinity: %s\n", util.ToJSONIndent(volumeNodeAffinity.Required))
+				notMatchNodeAffinity = append(notMatchNodeAffinity, util.ToJSONIndent(volumeNodeAffinity.Required))
 			}
 		}
 	}
 
 	return strings.Join(notMatchNodeAffinity, "\n")
 }
-
-func (a *Analyzer) checkResource(node *corev1.Node) string {
-	want := a.TargetConditions.ResourceRequirement
-	have, err := framework.BuildAllocatedResourceMap(a.ClientSet, node)
-
-	if err != nil {
-		return "cannot build node allocated resource"
-	}
+func (a *Analyzer) doCheckResource(want, have framework.ResourceList) string {
 
 	var notMeetResource []string
 	for k, v := range want {
 		reason := ""
 		if h, ok := have[k]; !ok {
-			reason = fmt.Sprintf("want %v: %s, have 0", v.Requests, k)
+			reason = fmt.Sprintf("%s: want %d, have 0", k, v.Requests)
 		} else {
 			if h.Requests+v.Requests > h.Capacity {
-				reason = fmt.Sprintf("want %v: %s, have %v", v.Requests, k, h.Capacity-h.Requests)
+				reason = fmt.Sprintf("%s: want %d, have %d left", k, v.Requests, h.Capacity-h.Requests)
 			}
 		}
 		if reason != "" {
@@ -146,15 +142,22 @@ func (a *Analyzer) checkResource(node *corev1.Node) string {
 	return strings.Join(notMeetResource, "\n")
 
 }
+func (a *Analyzer) checkResource(node *corev1.Node) string {
+	want := a.TargetConditions.ResourceRequirement
+	have, err := framework.BuildAllocatedResourceMap(a.ClientSet, node)
 
-func (a *Analyzer) checkAffinity(node *corev1.Node) string {
+	if err != nil {
+		return "cannot build node allocated resource"
+	}
+
+	return a.doCheckResource(want, have)
+
+}
+
+func (a *Analyzer) checkPodAffinity(node *corev1.Node) string {
 	podAffinityReason, err := a.interPodAffinityPlugin.Filter(a.targetPod, node)
 	if err != nil {
 		return fmt.Sprintf("check affinity error %s", err.Error())
 	}
-
-	nodeAffinityReason, err := checkNodeAffinity(a.TargetConditions.Affinity.NodeAffinity, node)
-
-	return strings.Join([]string{podAffinityReason, nodeAffinityReason}, "\n")
-
+	return podAffinityReason
 }

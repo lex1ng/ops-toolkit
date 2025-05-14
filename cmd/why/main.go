@@ -8,8 +8,8 @@ import (
 func NewWhyCommand() *cobra.Command {
 	opts := options.NewWhyFailedOptions()
 	cmd := &cobra.Command{
-		Use:          "getPodResource",
-		Short:        "An ops tool built by ops-tool team",
+		Use:          "why podname -n namespace",
+		Short:        "",
 		Long:         `An ops tool built by ops-tool team`,
 		SilenceUsage: true,
 
@@ -29,6 +29,10 @@ func NewWhyCommand() *cobra.Command {
 
 func run(opts *options.WhyFailedOptions) error {
 
+	err := opts.Validate()
+	if err != nil {
+		return err
+	}
 	analyzer, err := opts.NewAnalyzer()
 	if err != nil {
 		return err

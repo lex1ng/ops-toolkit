@@ -3,13 +3,19 @@ package scheduler
 import (
 	"context"
 	"fmt"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/jedib0t/go-pretty/v6/text"
 	"github.com/ops-tool/pkg/scheduler/framework"
 	"github.com/ops-tool/pkg/scheduler/framework/interpodaffinity"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"os"
+	"strings"
 )
+
+var ReportHeader = []string{"nodeName", "Unschedulable", "nodeSelector", "nodeAffinity", "podAffinity", "Toleration", "resource", "PV"}
 
 type Analyzer struct {
 	ClientSet              *kubernetes.Clientset
@@ -78,26 +84,53 @@ type Conditions struct {
 
 func (a *Analyzer) Why() error {
 
-	var nodeReport NodeReport
+	var nodeReports []*Report
 	for _, node := range a.allNodes {
-
 		report := a.DiagnoseNode(&node)
-		nodeReport = append(nodeReport, report)
+		nodeReports = append(nodeReports, report)
 	}
-	nodeReport.Print()
+
+	printReport(nodeReports)
 	return nil
 
+}
+
+func printReport(report []*Report) {
+
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.AppendHeader(framework.ListToRow(ReportHeader))
+
+	for _, r := range report {
+		t.AppendRow(framework.ListToRow(r.ToStringList()))
+	}
+
+	columnConfigs := make([]table.ColumnConfig, len(ReportHeader))
+	for i := range ReportHeader {
+		columnConfigs[i] = table.ColumnConfig{
+			Number:      i + 1,            // 列号从 1 开始
+			Align:       text.AlignCenter, // 设置居中对齐
+			AlignHeader: text.AlignCenter, // 设置居中对齐
+		}
+	}
+	t.SetColumnConfigs(columnConfigs)
+	style := table.StyleDefault
+	style.Format.Header = 0
+	t.SetStyle(style)
+	t.Render()
 }
 
 func (a *Analyzer) DiagnoseNode(node *v1.Node) *Report {
 
 	return &Report{
+		NodeName:               strings.Split(node.Name, "-")[0],
 		NodeUnschedulable:      a.checkUnSchedulableNode(node),
 		NodeSelectorReason:     a.checkNodeSelector(node.Labels),
 		TolerationReason:       a.checkTaints(node.Spec.Taints),
 		PersistentVolumeReason: a.checkVolumeNodeAffinity(node.Labels),
 		ResourceReason:         a.checkResource(node),
-		AffinityReason:         a.checkAffinity(node),
+		PodAffinityReason:      a.checkPodAffinity(node),
+		NodeAffinityReason:     a.checkNodeAffinity(node),
 	}
 }
 

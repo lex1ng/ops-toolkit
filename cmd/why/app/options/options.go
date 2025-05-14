@@ -1,6 +1,7 @@
 package options
 
 import (
+	"fmt"
 	"github.com/ops-tool/pkg/scheduler"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -35,4 +36,17 @@ func (o *WhyFailedOptions) NewAnalyzer() (*scheduler.Analyzer, error) {
 
 	return analyzer, nil
 
+}
+
+func (o *WhyFailedOptions) Validate() error {
+
+	if o.PodName == "" {
+		return fmt.Errorf("pod name is required")
+	}
+
+	if o.Namespace == "" {
+		return fmt.Errorf("namespace is required")
+	}
+
+	return nil
 }

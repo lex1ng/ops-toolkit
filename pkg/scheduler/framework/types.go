@@ -405,9 +405,9 @@ func PrintNodeList(nodeList []*Node) {
 	t.SetOutputMirror(os.Stdout)
 
 	header := append([]string{"nodeName"}, printResourceNames...)
-	t.AppendHeader(listToRow(header))
+	t.AppendHeader(ListToRow(header))
 	for _, n := range nodeList {
-		t.AppendRow(listToRow(n.String()))
+		t.AppendRow(ListToRow(n.String()))
 	}
 
 	columnConfigs := make([]table.ColumnConfig, len(header))
@@ -426,7 +426,7 @@ func PrintNodeList(nodeList []*Node) {
 
 }
 
-func listToRow(toTransfer []string) table.Row {
+func ListToRow(toTransfer []string) table.Row {
 
 	var row table.Row
 
