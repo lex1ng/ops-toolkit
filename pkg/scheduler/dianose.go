@@ -12,6 +12,7 @@ import (
 )
 
 func (a *Analyzer) checkNodeSelector(nodeLabels map[string]string) string {
+	fmt.Printf("checking node selector...\n")
 	selector := a.TargetConditions.NodeSelector
 	// noSelector: meet
 	var notMeetSelector []string
@@ -25,11 +26,12 @@ func (a *Analyzer) checkNodeSelector(nodeLabels map[string]string) string {
 			notMeetSelector = append(notMeetSelector, strings.Join([]string{k, v}, ":"))
 		}
 	}
-
+	fmt.Printf("not meet selector: %s\n", strings.Join(notMeetSelector, "\n"))
 	return strings.Join(notMeetSelector, "\n")
 }
 
 func (a *Analyzer) checkTaints(taints []corev1.Taint) string {
+	fmt.Printf("checking taints...\n")
 	tolerations := a.TargetConditions.Toleration
 	var untolerableTaints []string
 
@@ -50,11 +52,14 @@ func (a *Analyzer) checkTaints(taints []corev1.Taint) string {
 			untolerableTaints = append(untolerableTaints, util.ToJSONIndent(taint))
 		}
 	}
+
+	fmt.Printf("untolerable taints: %s\n", strings.Join(untolerableTaints, "\n"))
 	return strings.Join(untolerableTaints, "\n")
 
 }
 
 func (a *Analyzer) checkUnSchedulableNode(node *corev1.Node) string {
+	fmt.Printf("checking unschedulable node...\n")
 	toleration := a.TargetConditions.Toleration
 	if !node.Spec.Unschedulable {
 		return ""
@@ -74,6 +79,7 @@ func (a *Analyzer) checkUnSchedulableNode(node *corev1.Node) string {
 }
 
 func (a *Analyzer) checkNodeAffinity(node *corev1.Node) string {
+	fmt.Printf("checking node affinity...\n")
 	if a.TargetConditions.Affinity == nil || a.TargetConditions.Affinity.NodeAffinity == nil {
 		return ""
 	}
@@ -99,11 +105,12 @@ func (a *Analyzer) checkNodeAffinity(node *corev1.Node) string {
 		return ""
 	}
 
-	fmt.Printf("don't match node affinity: %s", util.ToJSON(nodeAffinityRequired))
+	fmt.Printf("don't match node affinity: %s\n", util.ToJSON(nodeAffinityRequired))
 	return fmt.Sprintf("don't match node affinity: %s", util.ToJSON(nodeAffinityRequired))
 
 }
 func (a *Analyzer) checkVolumeNodeAffinity(nodeLabels map[string]string) string {
+	fmt.Printf("checking volume node affinity...\n")
 	volumeNodeAffinities := a.TargetConditions.PersistentVolumeAffinity
 	var notMatchNodeAffinity []string
 	for _, volumeNodeAffinity := range volumeNodeAffinities {
@@ -123,10 +130,11 @@ func (a *Analyzer) checkVolumeNodeAffinity(nodeLabels map[string]string) string 
 		}
 	}
 
+	fmt.Printf("not match volumeNodeAffinity: %s\n", strings.Join(notMatchNodeAffinity, "\n"))
 	return strings.Join(notMatchNodeAffinity, "\n")
 }
 func (a *Analyzer) doCheckResource(want, have framework.ResourceList) string {
-
+	fmt.Printf("checking resource...\n")
 	var notMeetResource []string
 	for k, v := range want {
 		reason := ""
@@ -141,7 +149,7 @@ func (a *Analyzer) doCheckResource(want, have framework.ResourceList) string {
 			notMeetResource = append(notMeetResource, reason)
 		}
 	}
-
+	fmt.Printf("not meet resource: %s\n", strings.Join(notMeetResource, "\n"))
 	return strings.Join(notMeetResource, "\n")
 
 }
@@ -158,6 +166,7 @@ func (a *Analyzer) checkResource(node *corev1.Node) string {
 }
 
 func (a *Analyzer) checkPodAffinity(node *corev1.Node) string {
+
 	podAffinityReason, err := a.interPodAffinityPlugin.Filter(a.targetPod, node)
 	if err != nil {
 		return fmt.Sprintf("check affinity error %s", err.Error())

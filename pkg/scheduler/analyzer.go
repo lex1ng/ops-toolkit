@@ -12,7 +12,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"os"
+	"runtime"
 	"strings"
+	"sync"
 )
 
 var ReportHeader = []string{"nodeName", "Unschedulable", "nodeSelector", "nodeAffinity", "podAffinity", "Toleration", "resource", "PV"}
@@ -86,10 +88,11 @@ func (a *Analyzer) Why() error {
 
 	var nodeReports []*Report
 	for _, node := range a.allNodes {
-		report := a.DiagnoseNode(&node)
+		fmt.Printf("start dianose node %s ****************\n", node.Name)
+		report := a.DiagnoseNodeMulti(&node)
 		nodeReports = append(nodeReports, report)
+		fmt.Printf("dianose node %s done  ****************\n", node.Name)
 	}
-
 	printReport(nodeReports)
 	return nil
 
@@ -104,19 +107,35 @@ func printReport(report []*Report) {
 	for _, r := range report {
 		t.AppendRow(framework.ListToRow(r.ToStringList()))
 	}
+	t.SetStyle(table.Style{
+		Name: "MyStyle",
+		Box:  table.StyleBoxRounded, // 圆角边框
+		Options: table.Options{
+			DrawBorder:      true, // 启用外边框
+			SeparateColumns: true, // 列分隔线
+			SeparateRows:    true, // 行分隔线（核心配置）
+			SeparateFooter:  true,
+			SeparateHeader:  true,
+		},
+		Color: table.ColorOptions{
+			Separator: text.Colors{text.FgHiCyan}, // 行线颜色
+		},
+	})
 
-	columnConfigs := make([]table.ColumnConfig, len(ReportHeader))
-	for i := range ReportHeader {
-		columnConfigs[i] = table.ColumnConfig{
-			Number:      i + 1,            // 列号从 1 开始
-			Align:       text.AlignCenter, // 设置居中对齐
-			AlignHeader: text.AlignCenter, // 设置居中对齐
-		}
-	}
-	t.SetColumnConfigs(columnConfigs)
-	style := table.StyleDefault
-	style.Format.Header = 0
-	t.SetStyle(style)
+	//columnConfigs := make([]table.ColumnConfig, len(ReportHeader))
+	//for i := range ReportHeader {
+	//	columnConfigs[i] = table.ColumnConfig{
+	//		Number:      i + 1,          // 列号从 1 开始
+	//		Align:       text.AlignLeft, // 设置居中对齐
+	//		AlignHeader: text.AlignLeft, // 设置居中对齐
+	//	}
+	//
+	//}
+	//t.SetColumnConfigs(columnConfigs)
+	//style := table.StyleDefault
+	//style.Format.Header = 0
+	//t.SetStyle(style)
+	fmt.Println()
 	t.Render()
 }
 
@@ -132,6 +151,50 @@ func (a *Analyzer) DiagnoseNode(node *v1.Node) *Report {
 		PodAffinityReason:      a.checkPodAffinity(node),
 		NodeAffinityReason:     a.checkNodeAffinity(node),
 	}
+}
+
+type CheckTask struct {
+	checkFunc func() string // 检查函数
+	result    *string       // 结果存储指针
+}
+
+func (a *Analyzer) DiagnoseNodeMulti(node *v1.Node) *Report {
+	report := &Report{NodeName: strings.Split(node.Name, "-")[0]}
+
+	// 定义所有检查任务
+	tasks := []CheckTask{
+		{checkFunc: func() string { return a.checkUnSchedulableNode(node) }, result: &report.NodeUnschedulable},
+		{checkFunc: func() string { return a.checkNodeSelector(node.Labels) }, result: &report.NodeSelectorReason},
+		{checkFunc: func() string { return a.checkTaints(node.Spec.Taints) }, result: &report.TolerationReason},
+		{checkFunc: func() string { return a.checkVolumeNodeAffinity(node.Labels) }, result: &report.PersistentVolumeReason},
+		{checkFunc: func() string { return a.checkResource(node) }, result: &report.ResourceReason},
+		{checkFunc: func() string { return a.checkPodAffinity(node) }, result: &report.PodAffinityReason},
+		{checkFunc: func() string { return a.checkNodeAffinity(node) }, result: &report.NodeAffinityReason},
+	}
+	// 创建带缓冲的任务通道（避免阻塞）
+	taskChan := make(chan CheckTask, len(tasks))
+	var wg sync.WaitGroup
+
+	// 启动 Worker 协程（建议按 CPU 核数限制并发）
+	for i := 0; i < runtime.NumCPU(); i++ {
+		go func() {
+			for task := range taskChan {
+				*task.result = task.checkFunc()
+				wg.Done()
+			}
+		}()
+	}
+
+	// 分发任务
+	wg.Add(len(tasks))
+	for _, task := range tasks {
+		taskChan <- task
+	}
+	close(taskChan)
+	wg.Wait()
+
+	return report
+
 }
 
 func BuildPVAffinity(clientset *kubernetes.Clientset, pod *v1.Pod) []*v1.VolumeNodeAffinity {

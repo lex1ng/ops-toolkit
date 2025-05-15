@@ -327,27 +327,31 @@ func (pl *InterPodAffinity) preFilter(pod *v1.Pod) (*preFilterState, error) {
 }
 
 func (pl *InterPodAffinity) Filter(pod *v1.Pod, node *v1.Node) (string, error) {
-
+	fmt.Printf("checking pod affinity...\n")
 	state, err := pl.preFilter(pod)
 	var result []string
 	if err != nil {
 		return "", fmt.Errorf("pre-filtering pod in interpodAffinity Failed %s/%s: %+v", pod.Namespace, pod.Name, err)
 	}
-	podAffinityReason := satisfyPodAffinity(state, node)
-	result = append(result, podAffinityReason)
+	if podAffinityReason := satisfyPodAffinity(state, node); podAffinityReason != "" {
+		result = append(result, podAffinityReason)
+	}
 
-	podAntiAffinity := satisfyPodAntiAffinity(state, node)
-	result = append(result, podAntiAffinity)
+	if podAntiAffinity := satisfyPodAntiAffinity(state, node); podAntiAffinity != "" {
+		result = append(result, podAntiAffinity)
+	}
 
-	existingPodAntiAffinity := satisfyExistingPodsAntiAffinity(state, node)
-	result = append(result, existingPodAntiAffinity)
+	if existingPodAntiAffinity := satisfyExistingPodsAntiAffinity(state, node); existingPodAntiAffinity != "" {
+		result = append(result, existingPodAntiAffinity)
+	}
 
+	fmt.Printf("check pod affinity result: %s\n", strings.Join(result, "\n"))
 	return strings.Join(result, "\n"), nil
 }
 
 func satisfyPodAffinity(state *preFilterState, nodeInfo *v1.Node) string {
 	podsExist := true
-	notInNodeTopologyKey := []string{"notSatisfy Pod Affinity:"}
+	var notInNodeTopologyKey []string
 	if state.podInfo.RequiredAffinityTerms == nil || len(state.podInfo.RequiredAffinityTerms) == 0 {
 		return ""
 	}
@@ -364,7 +368,7 @@ func satisfyPodAffinity(state *preFilterState, nodeInfo *v1.Node) string {
 		}
 	}
 	if len(notInNodeTopologyKey) > 0 {
-		return strings.Join(notInNodeTopologyKey, "\n")
+		return strings.Join([]string{"not Satisfy Pod Affinity:", strings.Join(notInNodeTopologyKey, "\n")}, "\n")
 	}
 	if !podsExist {
 		// This pod may be the first pod in a series that have affinity to themselves. In order
@@ -381,7 +385,7 @@ func satisfyPodAffinity(state *preFilterState, nodeInfo *v1.Node) string {
 }
 
 func satisfyPodAntiAffinity(state *preFilterState, nodeInfo *v1.Node) string {
-	notPassAntiAffinity := []string{"not satisfy Anti-Affinity:"}
+	var notPassAntiAffinity []string
 	if len(state.antiAffinityCounts) > 0 {
 		for _, term := range state.podInfo.RequiredAntiAffinityTerms {
 			if topologyValue, ok := nodeInfo.Labels[term.TopologyKey]; ok {
@@ -392,12 +396,14 @@ func satisfyPodAntiAffinity(state *preFilterState, nodeInfo *v1.Node) string {
 			}
 		}
 	}
-
-	return strings.Join(notPassAntiAffinity, "\n")
+	if len(notPassAntiAffinity) == 0 {
+		return ""
+	}
+	return strings.Join([]string{"not Satisfy Pod Anti-Affinity:", strings.Join(notPassAntiAffinity, "\n")}, "\n")
 }
 
 func satisfyExistingPodsAntiAffinity(state *preFilterState, nodeInfo *v1.Node) string {
-	notPassExistingAntiAffinity := []string{"not satisfy Existing Anti-Affinity:"}
+	var notPassExistingAntiAffinity []string
 	if len(state.existingAntiAffinityCounts) > 0 {
 		// Iterate over topology pairs to get any of the pods being affected by
 		// the scheduled pod anti-affinity terms
@@ -408,5 +414,8 @@ func satisfyExistingPodsAntiAffinity(state *preFilterState, nodeInfo *v1.Node) s
 			}
 		}
 	}
-	return strings.Join(notPassExistingAntiAffinity, "\n")
+	if len(notPassExistingAntiAffinity) == 0 {
+		return ""
+	}
+	return strings.Join([]string{"not Satisfy existing Pod Anti-Affinity:", strings.Join(notPassExistingAntiAffinity, "\n")}, "\n")
 }
