@@ -5,6 +5,9 @@
 ```
 kubectl-ops getNodeResource
 ```
+输出示例
+![getNodeResourceExample.png](images/getNodeResourceExample.png)
+
 * 获取集群中各pod资源占用情况
 ```shell
 kubectl-ops getPodResource [-n namespace | --node node_name | --sort CPURequest,desc]
@@ -24,7 +27,11 @@ Flags:
 
 Global Flags:
   -k, --kubeconfig string   Kubeconfig 文件路径 (default "/root/.kube/config")
+  
 ```
+
+输出示例
+![getPodResourceExample.png](images/getPodResourceExample.png)
 
 * 分析pod调度失败原因
 ```shell
@@ -43,6 +50,8 @@ Flags:
 Global Flags:
   -k, --kubeconfig string   Kubeconfig 文件路径 (default "/root/.kube/config")
 ```
+输出示例
+![whyPodFailedExample.png](images/whyPodFailedExample.png)
 
 ## quick start
 ```shell
