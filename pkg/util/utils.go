@@ -38,7 +38,7 @@ type ColorText struct {
 
 type ColorTextList []ColorText
 
-var colorMaps map[string]color.Attribute = map[string]color.Attribute{
+var colorMaps = map[string]color.Attribute{
 	"green": color.FgGreen,
 	"red":   color.FgRed,
 }
@@ -68,6 +68,7 @@ func NewRedText(text string) ColorText {
 func (ctl ColorTextList) String() string {
 
 	result := ""
+
 	if ctl == nil {
 		return result
 	}
@@ -77,7 +78,7 @@ func (ctl ColorTextList) String() string {
 		}
 		result += ct.String() + "\n"
 	}
-	return result[:len(result)-1]
+	return result
 }
 
 func StringListToColorTextList(input []string, color string) ColorTextList {

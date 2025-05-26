@@ -435,10 +435,10 @@ func satisfyExistingPodsAntiAffinity(state *preFilterState, nodeInfo *v1.Node) u
 	if len(notPassExistingAntiAffinity) == 0 {
 		return nil
 	}
-	return util.StringListToColorTextList(append([]string{"Not Satisfied existing Pod Anti-Affinity:\n"}, notPassExistingAntiAffinity...), "red")
-	//util.ColorTextList{
-	//	//util.NewGreenText(strings.Join([]string{"Satisfied existing Pod Anti-Affinity:", strings.Join(passExistingAntiAffinity, "")}, "")),
-	//	util.NewRedText(strings.Join([]string{"Not Satisfied existing Pod Anti-Affinity:\n", strings.Join(notPassExistingAntiAffinity, "")}, "")),
-	//}
+	//return util.StringListToColorTextList(append([]string{"Not Satisfied existing Pod Anti-Affinity:\n"}, notPassExistingAntiAffinity...), "red")
+	return util.ColorTextList{
+		//util.NewGreenText(strings.Join([]string{"Satisfied existing Pod Anti-Affinity:", strings.Join(passExistingAntiAffinity, "")}, "")),
+		util.NewRedText(strings.Join([]string{"Not Satisfied existing Pod Anti-Affinity:\n", strings.Join(notPassExistingAntiAffinity, "")}, "")),
+	}
 
 }
