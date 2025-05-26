@@ -1,6 +1,25 @@
 ## 运维工具箱
 
 目前支持的功能有
+* 分析pod调度失败原因
+```shell
+kubectl-ops why <Pod_Name> [-n namespace]
+
+# kubectl ops why --help 
+show why pod cannot be scheduled
+
+Usage:
+  ops why podname -n namespace [flags]
+
+Flags:
+  -h, --help               help for why
+  -n, --namespace string   get pod resource in specific namespace (default "default")
+
+Global Flags:
+  -k, --kubeconfig string   Kubeconfig 文件路径 (default "/root/.kube/config")
+```
+输出示例
+![whyPodFailedExample.png](images/whyPodFailedExample.png)
 * 获取集群中各节点的资源使用情况 
 ```
 kubectl-ops getNodeResource
@@ -33,25 +52,7 @@ Global Flags:
 输出示例
 ![getPodResourceExample.png](images/getPodResourceExample.png)
 
-* 分析pod调度失败原因
-```shell
-kubectl-ops why <Pod_Name> [-n namespace]
 
-# kubectl ops why --help 
-show why pod cannot be scheduled
-
-Usage:
-  ops why podname -n namespace [flags]
-
-Flags:
-  -h, --help               help for why
-  -n, --namespace string   get pod resource in specific namespace (default "default")
-
-Global Flags:
-  -k, --kubeconfig string   Kubeconfig 文件路径 (default "/root/.kube/config")
-```
-输出示例
-![whyPodFailedExample.png](images/whyPodFailedExample.png)
 
 ## quick start
 ```shell
