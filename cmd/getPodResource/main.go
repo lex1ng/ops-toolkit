@@ -24,7 +24,9 @@ func NewGetPodResourceCommand() *cobra.Command {
 	cmd.Flags().StringVarP(&opts.Namespace, "namespace", "n", "", "get pod resource in specific namespace")
 	cmd.Flags().StringVar(&opts.Node, "node", "", "get pod resource in specific node")
 	cmd.Flags().StringVarP(&opts.Workload, "target", "t", "sts", "get pod resource of specific workload")
-	cmd.Flags().StringVarP(&opts.Sort, "sort", "s", "", "sort pod resource using key desc. (e.g. cpurequest,desc)")
+	cmd.Flags().StringVarP(&opts.Sort, "sort", "s", "", "sort pod resource using key desc, key,value (e.g. CPURequest,desc)\n"+
+		"supported Keys: Name, Namespace, NodeName,CPURequest, CPULimit, CPUUsage, MemRequest, MemLimit, MemUsage\n"+
+		"supported values: desc, asc")
 
 	return cmd
 }

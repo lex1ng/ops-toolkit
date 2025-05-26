@@ -1,17 +1,22 @@
 package scheduler
 
+import (
+	"github.com/ops-tool/pkg/util"
+)
+
 type Report struct {
 	NodeName               string
-	NodeSelectorReason     string
-	NodeAffinityReason     string
-	NodeUnschedulable      string
-	ResourceReason         string
-	TolerationReason       string
-	PersistentVolumeReason string
-	PodAffinityReason      string
+	NodeSelectorReason     util.ColorTextList
+	NodeAffinityReason     util.ColorTextList
+	NodeUnschedulable      util.ColorTextList
+	ResourceReason         util.ColorTextList
+	TolerationReason       util.ColorTextList
+	PersistentVolumeReason util.ColorTextList
+	PodAffinityReason      util.ColorTextList
 }
 
 func (r *Report) ToStringList() []string {
 
-	return []string{r.NodeName, r.NodeUnschedulable, r.NodeSelectorReason, r.NodeAffinityReason, r.PodAffinityReason, r.TolerationReason, r.ResourceReason, r.PersistentVolumeReason}
+	return []string{r.NodeName, r.NodeUnschedulable.String(), r.NodeSelectorReason.String(),
+		r.NodeAffinityReason.String(), r.PodAffinityReason.String(), r.TolerationReason.String(), r.ResourceReason.String(), r.PersistentVolumeReason.String()}
 }

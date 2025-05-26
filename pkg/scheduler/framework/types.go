@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
+	"github.com/ops-tool/pkg/util"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -405,9 +406,9 @@ func PrintNodeList(nodeList []*Node) {
 	t.SetOutputMirror(os.Stdout)
 
 	header := append([]string{"nodeName"}, printResourceNames...)
-	t.AppendHeader(ListToRow(header))
+	t.AppendHeader(util.ListToRow(header))
 	for _, n := range nodeList {
-		t.AppendRow(ListToRow(n.String()))
+		t.AppendRow(util.ListToRow(n.String()))
 	}
 
 	columnConfigs := make([]table.ColumnConfig, len(header))
@@ -424,15 +425,4 @@ func PrintNodeList(nodeList []*Node) {
 	t.SetStyle(style)
 	t.Render()
 
-}
-
-func ListToRow(toTransfer []string) table.Row {
-
-	var row table.Row
-
-	for _, v := range toTransfer {
-		row = append(row, v)
-	}
-
-	return row
 }

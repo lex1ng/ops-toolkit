@@ -7,6 +7,8 @@ import (
 	"github.com/jedib0t/go-pretty/v6/text"
 	"github.com/ops-tool/pkg/scheduler/framework"
 	"github.com/ops-tool/pkg/scheduler/framework/interpodaffinity"
+	"github.com/ops-tool/pkg/util"
+	"golang.org/x/term"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -81,7 +83,13 @@ type Conditions struct {
 	Affinity                 *corev1.Affinity
 	ResourceRequirement      framework.ResourceList
 	Toleration               []v1.Toleration
-	PersistentVolumeAffinity []*v1.VolumeNodeAffinity
+	PersistentVolumeAffinity []*PVCStatus
+}
+
+type PVCStatus struct {
+	Name             string
+	PVName           string
+	PVVolumeAffinity *v1.VolumeNodeAffinity
 }
 
 func (a *Analyzer) Why() error {
@@ -98,14 +106,21 @@ func (a *Analyzer) Why() error {
 
 }
 
+func getTerminalWidth() int {
+	width, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil {
+		return 120 // 默认 fallback 宽度
+	}
+	return width
+}
 func printReport(report []*Report) {
 
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
-	t.AppendHeader(framework.ListToRow(ReportHeader))
+	t.AppendHeader(util.ListToRow(ReportHeader))
 
 	for _, r := range report {
-		t.AppendRow(framework.ListToRow(r.ToStringList()))
+		t.AppendRow(util.ListToRow(r.ToStringList()))
 	}
 	t.SetStyle(table.Style{
 		Name: "MyStyle",
@@ -119,19 +134,38 @@ func printReport(report []*Report) {
 		},
 		Color: table.ColorOptions{
 			Separator: text.Colors{text.FgHiCyan}, // 行线颜色
+			Border:    text.Colors{text.FgHiCyan},
 		},
 	})
 
-	//columnConfigs := make([]table.ColumnConfig, len(ReportHeader))
-	//for i := range ReportHeader {
-	//	columnConfigs[i] = table.ColumnConfig{
-	//		Number:      i + 1,          // 列号从 1 开始
-	//		Align:       text.AlignLeft, // 设置居中对齐
-	//		AlignHeader: text.AlignLeft, // 设置居中对齐
-	//	}
-	//
-	//}
-	//t.SetColumnConfigs(columnConfigs)
+	termWidth := getTerminalWidth()
+	numCols := len(ReportHeader)
+
+	margin := numCols + 1 // 估计边框 + padding + 总体留白
+	availableWidth := termWidth - margin
+	if availableWidth <= 0 {
+		availableWidth = 40 // fallback 宽度
+	}
+
+	// 3. 每列最大宽度 = 总宽度 / 列数
+	widthPerCol := availableWidth / numCols
+	if widthPerCol > 40 {
+		widthPerCol = 40 // 限制最大单列宽度
+	}
+	fmt.Printf("calculated widthPerCol: %d", widthPerCol)
+
+	columnConfigs := make([]table.ColumnConfig, len(ReportHeader))
+	for i := range ReportHeader {
+		columnConfigs[i] = table.ColumnConfig{
+			Number: i + 1, // 列号从 1 开始
+			//Align:       text.AlignLeft, // 设置居中对齐
+			//AlignHeader: text.AlignLeft, // 设置居中对齐
+			WidthMax: widthPerCol,
+		}
+
+	}
+
+	t.SetColumnConfigs(columnConfigs)
 	//style := table.StyleDefault
 	//style.Format.Header = 0
 	//t.SetStyle(style)
@@ -154,8 +188,8 @@ func (a *Analyzer) DiagnoseNode(node *v1.Node) *Report {
 }
 
 type CheckTask struct {
-	checkFunc func() string // 检查函数
-	result    *string       // 结果存储指针
+	checkFunc func() util.ColorTextList // 检查函数
+	result    *util.ColorTextList       // 结果存储指针
 }
 
 func (a *Analyzer) DiagnoseNodeMulti(node *v1.Node) *Report {
@@ -163,13 +197,13 @@ func (a *Analyzer) DiagnoseNodeMulti(node *v1.Node) *Report {
 
 	// 定义所有检查任务
 	tasks := []CheckTask{
-		{checkFunc: func() string { return a.checkUnSchedulableNode(node) }, result: &report.NodeUnschedulable},
-		{checkFunc: func() string { return a.checkNodeSelector(node.Labels) }, result: &report.NodeSelectorReason},
-		{checkFunc: func() string { return a.checkTaints(node.Spec.Taints) }, result: &report.TolerationReason},
-		{checkFunc: func() string { return a.checkVolumeNodeAffinity(node.Labels) }, result: &report.PersistentVolumeReason},
-		{checkFunc: func() string { return a.checkResource(node) }, result: &report.ResourceReason},
-		{checkFunc: func() string { return a.checkPodAffinity(node) }, result: &report.PodAffinityReason},
-		{checkFunc: func() string { return a.checkNodeAffinity(node) }, result: &report.NodeAffinityReason},
+		{checkFunc: func() util.ColorTextList { return a.checkUnSchedulableNode(node) }, result: &report.NodeUnschedulable},
+		{checkFunc: func() util.ColorTextList { return a.checkNodeSelector(node.Labels) }, result: &report.NodeSelectorReason},
+		{checkFunc: func() util.ColorTextList { return a.checkTaints(node.Spec.Taints) }, result: &report.TolerationReason},
+		{checkFunc: func() util.ColorTextList { return a.checkVolumeNodeAffinity(node.Labels) }, result: &report.PersistentVolumeReason},
+		{checkFunc: func() util.ColorTextList { return a.checkResource(node) }, result: &report.ResourceReason},
+		{checkFunc: func() util.ColorTextList { return a.checkPodAffinity(node) }, result: &report.PodAffinityReason},
+		{checkFunc: func() util.ColorTextList { return a.checkNodeAffinity(node) }, result: &report.NodeAffinityReason},
 	}
 	// 创建带缓冲的任务通道（避免阻塞）
 	taskChan := make(chan CheckTask, len(tasks))
@@ -197,16 +231,15 @@ func (a *Analyzer) DiagnoseNodeMulti(node *v1.Node) *Report {
 
 }
 
-func BuildPVAffinity(clientset *kubernetes.Clientset, pod *v1.Pod) []*v1.VolumeNodeAffinity {
+func BuildPVAffinity(clientset *kubernetes.Clientset, pod *v1.Pod) []*PVCStatus {
 
-	var pvcNames []string
-	var pvAffinity []*v1.VolumeNodeAffinity
+	var pvAffinity []*PVCStatus
 	for _, volume := range pod.Spec.Volumes {
-		if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.ClaimName != "" {
-			pvcNames = append(pvcNames, volume.PersistentVolumeClaim.ClaimName)
+		if volume.PersistentVolumeClaim == nil || volume.PersistentVolumeClaim.ClaimName == "" {
+			continue
 		}
-	}
-	for _, pvcName := range pvcNames {
+
+		pvcName := volume.PersistentVolumeClaim.ClaimName
 
 		pvc, err := clientset.CoreV1().PersistentVolumeClaims(pod.Namespace).Get(context.Background(), pvcName, metav1.GetOptions{})
 		if err != nil {
@@ -218,9 +251,13 @@ func BuildPVAffinity(clientset *kubernetes.Clientset, pod *v1.Pod) []*v1.VolumeN
 			continue
 		}
 
-		pvAffinity = append(pvAffinity, pv.Spec.NodeAffinity)
-
+		pvAffinity = append(pvAffinity, &PVCStatus{
+			Name:             pvcName,
+			PVName:           pv.Name,
+			PVVolumeAffinity: pv.Spec.NodeAffinity,
+		})
 	}
+
 	return pvAffinity
 }
 
