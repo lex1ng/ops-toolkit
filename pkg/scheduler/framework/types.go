@@ -3,9 +3,11 @@ package framework
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
+
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
-	"github.com/ops-tool/pkg/util"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,8 +16,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	resourcehelper "k8s.io/kubectl/pkg/util/resource"
-	"os"
-	"strings"
+
+	"github.com/ops-tool/pkg/util"
 )
 
 var (
@@ -30,6 +32,19 @@ type Resource struct {
 	Limits           int64   `json:"limits"`
 	LimitsFraction   float64 `json:"limitsFraction"`
 	Capacity         int64   `json:"capacity"`
+}
+
+func (r *Resource) SimpleString() string {
+
+	resourceName := r.Name
+	if resourceName == "cpu" {
+		return fmt.Sprintf("%d", r.Requests)
+	} else if resourceName == "cloudbed.abcstack.com/mlnx_numa0_netdevice" || resourceName == "cloudbed.abcstack.com/mlnx_numa1_netdevice" || resourceName == "cloudbed.abcstack.com/hdd-passthrough" || resourceName == "cloudbed.abcstack.com/ssd-passthrough" {
+		return fmt.Sprintf("%d", int64(r.Requests))
+	} else if resourceName == "ephemeral-storage" {
+		return fmt.Sprintf("%dMi", r.Requests/(1024*1024))
+	}
+	return fmt.Sprintf("%dGi", r.Requests/(1024*1024*1024))
 }
 
 func (r *Resource) String() string {

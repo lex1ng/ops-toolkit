@@ -3,6 +3,10 @@ package pods
 import (
 	"context"
 	"fmt"
+	"os"
+	"sort"
+	"strings"
+
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/ops-tool/pkg/util"
 	v1 "k8s.io/api/core/v1"
@@ -11,9 +15,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	metrics "k8s.io/metrics/pkg/client/clientset/versioned"
-	"os"
-	"sort"
-	"strings"
 )
 
 type PodResourceReporter struct {

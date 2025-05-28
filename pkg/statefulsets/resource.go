@@ -3,12 +3,13 @@ package statefulsets
 import (
 	"context"
 	"fmt"
+	"os"
+
 	"github.com/360EntSecGroup-Skylar/excelize/v2"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"os"
 )
 
 var headers = []string{"Namespace", "StatefulSet", "Container", "CPU request", "CPU limit", "Mem request", "Mem limit", "CPU Policy", "Mem Policy"}

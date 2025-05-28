@@ -10,7 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/workqueue"
-	"strings"
 	"sync/atomic"
 )
 
@@ -337,22 +336,23 @@ func (pl *InterPodAffinity) Filter(pod *v1.Pod, node *v1.Node) util.ColorTextLis
 		}
 	}
 	if podAffinityReason := satisfyPodAffinity(state, node); podAffinityReason != nil {
-		result = append(result, podAffinityReason...)
+		result.MergeList(util.StringListToColorTextList(podAffinityReason, "red"))
 	}
 
 	if podAntiAffinityReason := satisfyPodAntiAffinity(state, node); podAntiAffinityReason != nil {
-		result = append(result, podAntiAffinityReason...)
+		result.MergeList(util.StringListToColorTextList(podAntiAffinityReason, "red"))
 	}
 
 	if existingPodAntiAffinityReason := satisfyExistingPodsAntiAffinity(state, node); existingPodAntiAffinityReason != nil {
-		result = append(result, existingPodAntiAffinityReason...)
+		result.MergeList(util.StringListToColorTextList(existingPodAntiAffinityReason, "red"))
+
 	}
 
 	//fmt.Printf("check pod affinity result: %s\n", strings.Join(result, "\n"))
 	return result
 }
 
-func satisfyPodAffinity(state *preFilterState, nodeInfo *v1.Node) util.ColorTextList {
+func satisfyPodAffinity(state *preFilterState, nodeInfo *v1.Node) []string {
 	podsExist := true
 	var notInNodeTopologyKey, inNodeTopologyKey []string
 	if state.podInfo.RequiredAffinityTerms == nil || len(state.podInfo.RequiredAffinityTerms) == 0 {
@@ -373,10 +373,11 @@ func satisfyPodAffinity(state *preFilterState, nodeInfo *v1.Node) util.ColorText
 		}
 	}
 	if len(notInNodeTopologyKey) > 0 {
-		return util.ColorTextList{
-			//util.NewGreenText(strings.Join([]string{"Satisfied Pod Affinity:", strings.Join(inNodeTopologyKey, ",")}, ",")),
-			util.NewRedText(strings.Join([]string{"Not Satisfied Pod Affinity:\t", strings.Join(notInNodeTopologyKey, ",")}, ",")),
-		}
+		return append([]string{"Not Satisfied Pod Affinity:\t"}, notInNodeTopologyKey...)
+		//return util.ColorTextList{
+		//	//util.NewGreenText(strings.Join([]string{"Satisfied Pod Affinity:", strings.Join(inNodeTopologyKey, ",")}, ",")),
+		//	util.NewRedText(strings.Join([]string{"Not Satisfied Pod Affinity:\t", strings.Join(notInNodeTopologyKey, ",")}, ",")),
+		//}
 	}
 	if !podsExist {
 		// This pod may be the first pod in a series that have affinity to themselves. In order
@@ -387,14 +388,12 @@ func satisfyPodAffinity(state *preFilterState, nodeInfo *v1.Node) util.ColorText
 		if len(state.affinityCounts) == 0 && podMatchesAllAffinityTerms(state.podInfo.RequiredAffinityTerms, state.podInfo.Pod) {
 			return nil
 		}
-		return util.ColorTextList{
-			util.NewRedText("pod dont's match self affinity."),
-		}
+		return []string{"pod dont's match self affinity."}
 	}
 	return nil
 }
 
-func satisfyPodAntiAffinity(state *preFilterState, nodeInfo *v1.Node) util.ColorTextList {
+func satisfyPodAntiAffinity(state *preFilterState, nodeInfo *v1.Node) []string {
 	var notPassAntiAffinity, passAntiAffinity []string
 	if len(state.antiAffinityCounts) > 0 {
 		for _, term := range state.podInfo.RequiredAntiAffinityTerms {
@@ -411,14 +410,15 @@ func satisfyPodAntiAffinity(state *preFilterState, nodeInfo *v1.Node) util.Color
 	if len(notPassAntiAffinity) == 0 {
 		return nil
 	}
-	return util.ColorTextList{
-		//util.NewGreenText(strings.Join([]string{"Satisfied Pod Anti-Affinity:,", strings.Join(passAntiAffinity, "")}, "")),
-		util.NewRedText(strings.Join([]string{"Not Satisfied Pod Anti-Affinity:\t", strings.Join(notPassAntiAffinity, "")}, "")),
-	}
+	return append([]string{"Not Satisfied Pod Anti-Affinity:"}, notPassAntiAffinity...)
+	//util.ColorTextList{
+	//	//util.NewGreenText(strings.Join([]string{"Satisfied Pod Anti-Affinity:,", strings.Join(passAntiAffinity, "")}, "")),
+	//	util.NewRedText(strings.Join([]string{"Not Satisfied Pod Anti-Affinity:\t", strings.Join(notPassAntiAffinity, "")}, "")),
+	//}
 
 }
 
-func satisfyExistingPodsAntiAffinity(state *preFilterState, nodeInfo *v1.Node) util.ColorTextList {
+func satisfyExistingPodsAntiAffinity(state *preFilterState, nodeInfo *v1.Node) []string {
 	var notPassExistingAntiAffinity, passExistingAntiAffinity []string
 	if len(state.existingAntiAffinityCounts) > 0 {
 		// Iterate over topology pairs to get any of the pods being affected by
@@ -436,9 +436,11 @@ func satisfyExistingPodsAntiAffinity(state *preFilterState, nodeInfo *v1.Node) u
 		return nil
 	}
 	//return util.StringListToColorTextList(append([]string{"Not Satisfied existing Pod Anti-Affinity:\n"}, notPassExistingAntiAffinity...), "red")
-	return util.ColorTextList{
-		//util.NewGreenText(strings.Join([]string{"Satisfied existing Pod Anti-Affinity:", strings.Join(passExistingAntiAffinity, "")}, "")),
-		util.NewRedText(strings.Join([]string{"Not Satisfied existing Pod Anti-Affinity:\n", strings.Join(notPassExistingAntiAffinity, "")}, "")),
-	}
+	return append([]string{"Not Satisfied existing Pod Anti-Affinity:"}, notPassExistingAntiAffinity...)
+
+	//util.ColorTextList{
+	//	//util.NewGreenText(strings.Join([]string{"Satisfied existing Pod Anti-Affinity:", strings.Join(passExistingAntiAffinity, "")}, "")),
+	//	util.NewRedText(strings.Join([]string{"Not Satisfied existing Pod Anti-Affinity:\n", strings.Join(notPassExistingAntiAffinity, "")}, "")),
+	//}
 
 }

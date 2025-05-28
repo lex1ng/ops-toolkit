@@ -2,13 +2,14 @@ package scheduler
 
 import (
 	"fmt"
-	"github.com/ops-tool/pkg/scheduler/framework"
-	"github.com/ops-tool/pkg/util"
+	"strings"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	componenthelpers "k8s.io/component-helpers/scheduling/corev1"
 
-	"strings"
+	"github.com/ops-tool/pkg/scheduler/framework"
+	"github.com/ops-tool/pkg/util"
 )
 
 func (a *Analyzer) checkNodeSelector(nodeLabels map[string]string) util.ColorTextList {
@@ -28,11 +29,15 @@ func (a *Analyzer) checkNodeSelector(nodeLabels map[string]string) util.ColorTex
 			meetSelector = append(meetSelector, strings.Join([]string{k, v}, ":"))
 		}
 	}
+	result := util.ColorTextList{}
+	result.MergeList(util.StringListToColorTextList(meetSelector, "green"))
+	result.MergeList(util.StringListToColorTextList(notMeetSelector, "red"))
+	return result
 	//fmt.Printf("not meet selector: %s\n", strings.Join(notMeetSelector, "\n"))
-	return util.ColorTextList{
-		util.NewGreenText(strings.Join(meetSelector, ",")),
-		util.NewRedText(strings.Join(notMeetSelector, ",")),
-	}
+	//return util.ColorTextList{
+	//	util.NewGreenText(strings.Join(meetSelector, ",")),
+	//	util.NewRedText(strings.Join(notMeetSelector, ",")),
+	//}
 }
 
 func (a *Analyzer) checkTaints(taints []corev1.Taint) util.ColorTextList {
@@ -60,12 +65,15 @@ func (a *Analyzer) checkTaints(taints []corev1.Taint) util.ColorTextList {
 			tolerableTaints = append(tolerableTaints, toSave)
 		}
 	}
-
+	result := util.ColorTextList{}
+	result.MergeList(util.StringListToColorTextList(tolerableTaints, "green"))
+	result.MergeList(util.StringListToColorTextList(untolerableTaints, "red"))
+	return result
 	//fmt.Printf("untolerable taints: %s\n", strings.Join(untolerableTaints, "\n"))
-	return util.ColorTextList{
-		util.NewGreenText(strings.Join(tolerableTaints, ",")),
-		util.NewRedText(strings.Join(untolerableTaints, ",")),
-	}
+	//return util.ColorTextList{
+	//	util.NewGreenText(strings.Join(tolerableTaints, ",")),
+	//	util.NewRedText(strings.Join(untolerableTaints, ",")),
+	//}
 
 }
 
@@ -119,7 +127,7 @@ func (a *Analyzer) checkNodeAffinity(node *corev1.Node) util.ColorTextList {
 		}
 	}
 	target := nodeAffinityRequired.NodeSelectorTerms[0].MatchExpressions[0]
-	toSave := fmt.Sprintf("pod have node affinity: %s %s %s", target.Key, target.Operator, target.Values[0])
+	toSave := fmt.Sprintf("%s %s %s", target.Key, target.Operator, target.Values[0])
 	if matches {
 		return util.ColorTextList{
 			util.NewGreenText(toSave),
@@ -160,7 +168,7 @@ func (a *Analyzer) checkVolumeNodeAffinity(nodeLabels map[string]string) util.Co
 			terms := volumeNodeAffinity.Required
 			//toSave := fmt.Sprintf("pvc %s's pv %s in %s", pvcStatus.Name, pvcStatus.PVName, terms.NodeSelectorTerms[0].MatchExpressions[0].Values[0])
 			//toSave := fmt.Sprintf("pv %s in %s", pvcStatus.PVName, terms.NodeSelectorTerms[0].MatchExpressions[0].Values[0])
-			toSave := fmt.Sprintf("pv %s in %s", pvcStatus.PVName, findPVNodeName(terms.NodeSelectorTerms[0].MatchExpressions))
+			toSave := fmt.Sprintf("pvc %s's pv in %s", pvcStatus.Name, findPVNodeName(terms.NodeSelectorTerms[0].MatchExpressions))
 			if matches, err := componenthelpers.MatchNodeSelectorTerms(node, terms); err != nil {
 				matchNodeAffinity = append(matchNodeAffinity, toSave)
 				//fmt.Printf("check match node selector terms on node %s error: %s", node.Name, util.ToJSONIndent(volumeNodeAffinity.Required))
@@ -170,12 +178,15 @@ func (a *Analyzer) checkVolumeNodeAffinity(nodeLabels map[string]string) util.Co
 			}
 		}
 	}
-
+	result := util.ColorTextList{}
+	result.MergeList(util.StringListToColorTextList(matchNodeAffinity, "green"))
+	result.MergeList(util.StringListToColorTextList(notMatchNodeAffinity, "red"))
+	return result
 	//fmt.Printf("not match volumeNodeAffinity: %s\n", strings.Join(notMatchNodeAffinity, "\n"))
-	return util.ColorTextList{
-		util.NewGreenText(strings.Join(matchNodeAffinity, ",")),
-		util.NewRedText(strings.Join(notMatchNodeAffinity, ",")),
-	}
+	//return util.ColorTextList{
+	//	util.NewGreenText(strings.Join(matchNodeAffinity, ",")),
+	//	util.NewRedText(strings.Join(notMatchNodeAffinity, ",")),
+	//}
 }
 func (a *Analyzer) doCheckResource(want, have framework.ResourceList) util.ColorTextList {
 	//fmt.Printf("checking resource...\n")
@@ -184,26 +195,31 @@ func (a *Analyzer) doCheckResource(want, have framework.ResourceList) util.Color
 	for k, v := range want {
 		reason := ""
 		if h, ok := have[k]; !ok {
-			reason = fmt.Sprintf("%s: want %d, have 0", k, v.Requests)
+			reason = fmt.Sprintf("%s: want %s, have 0", k, v.SimpleString())
 		} else {
 			if h.Requests+v.Requests > h.Capacity {
-				reason = fmt.Sprintf("%s: want %d, have %d left", k, v.Requests, h.Capacity-h.Requests)
+				reason = fmt.Sprintf("%s: want %s, have %d left", k, v.SimpleString(), h.Capacity-h.Requests)
 			}
 		}
 		if reason != "" {
 			notMeetResource = append(notMeetResource, reason)
 		} else {
-			meetResource = append(meetResource, fmt.Sprintf("%s: have %d", k, v.Requests))
+			meetResource = append(meetResource, fmt.Sprintf("%s: have %s", k, v.SimpleString()))
 		}
 	}
+	result := util.ColorTextList{}
+	result.MergeList(util.StringListToColorTextList(meetResource, "green"))
+	result.MergeList(util.StringListToColorTextList(notMeetResource, "red"))
 	//fmt.Printf("not meet resource: %s\n", strings.Join(notMeetResource, "\n"))
 	//return strings.Join(notMeetResource, "\n")
-	return util.ColorTextList{
-		util.NewGreenText(strings.Join(meetResource, ",")),
-		util.NewRedText(strings.Join(notMeetResource, ",")),
-	}
+	return result
+	//return util.ColorTextList{
+	//	util.NewGreenText(strings.Join(meetResource, ",")),
+	//	util.NewRedText(strings.Join(notMeetResource, ",")),
+	//}
 
 }
+
 func (a *Analyzer) checkResource(node *corev1.Node) util.ColorTextList {
 	want := a.TargetConditions.ResourceRequirement
 	have, err := framework.BuildAllocatedResourceMap(a.ClientSet, node)

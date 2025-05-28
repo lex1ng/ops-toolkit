@@ -2,6 +2,7 @@ package util
 
 import (
 	"encoding/json"
+
 	"github.com/fatih/color"
 	"github.com/jedib0t/go-pretty/v6/table"
 )
@@ -91,4 +92,10 @@ func StringListToColorTextList(input []string, color string) ColorTextList {
 		})
 	}
 	return colorTextList
+}
+
+func (ctl *ColorTextList) MergeList(input ColorTextList) ColorTextList {
+
+	*ctl = append(*ctl, input...)
+	return *ctl
 }
