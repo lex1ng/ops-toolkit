@@ -8,7 +8,7 @@ import (
 func NewGetNodeResourceCommand() *cobra.Command {
 	opts := options.NewNodeResourceOptions()
 	cmd := &cobra.Command{
-		Use:          "getNodeResource",
+		Use:          "get-node-resource",
 		Short:        "get all node Resource in the cluster",
 		Long:         `get all node Resource in the cluster`,
 		SilenceUsage: true,

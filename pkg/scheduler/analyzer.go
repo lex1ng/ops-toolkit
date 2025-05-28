@@ -25,7 +25,6 @@ type Analyzer struct {
 	Namespace              string
 	PodName                string
 	TargetConditions       *Conditions
-	NodeReport             NodeReport
 	allNodes               []v1.Node
 	interPodAffinityPlugin *interpodaffinity.InterPodAffinity
 }
@@ -40,9 +39,9 @@ func NewAnalyzer(clientSet *kubernetes.Clientset, podNamespace, podName string) 
 	cond := &Conditions{
 		NodeSelector:             pod.Spec.NodeSelector,
 		Affinity:                 pod.Spec.Affinity,
-		ResourceRequirement:      BuildResourceList(pod),
+		ResourceRequirement:      framework.BuildPodResourceList(pod),
 		Toleration:               pod.Spec.Tolerations,
-		PersistentVolumeAffinity: BuildPVAffinity(clientSet, pod),
+		PersistentVolumeAffinity: framework.BuildPVAffinity(clientSet, pod),
 	}
 
 	allPods, err := clientSet.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
@@ -69,27 +68,6 @@ func NewAnalyzer(clientSet *kubernetes.Clientset, podNamespace, podName string) 
 
 }
 
-type NodeReport []*Report
-
-func (nr *NodeReport) Print() {
-
-	fmt.Print("hello")
-}
-
-type Conditions struct {
-	NodeSelector             map[string]string
-	Affinity                 *corev1.Affinity
-	ResourceRequirement      framework.ResourceList
-	Toleration               []v1.Toleration
-	PersistentVolumeAffinity []*PVCStatus
-}
-
-type PVCStatus struct {
-	Name             string
-	PVName           string
-	PVVolumeAffinity *v1.VolumeNodeAffinity
-}
-
 func (a *Analyzer) Why() error {
 
 	var nodeReports []*Report
@@ -97,10 +75,18 @@ func (a *Analyzer) Why() error {
 		fmt.Printf("start diagnose node %s ****************\n", node.Name)
 		report := a.DiagnoseNodeMulti(&node)
 		nodeReports = append(nodeReports, report)
-		fmt.Printf(" done  ****************\n")
+		fmt.Printf("done ****************\n")
 	}
 	printReport(nodeReports)
 	return nil
+}
+
+type Conditions struct {
+	NodeSelector             map[string]string
+	Affinity                 *corev1.Affinity
+	ResourceRequirement      framework.ResourceList
+	Toleration               []v1.Toleration
+	PersistentVolumeAffinity []*framework.PVCStatus
 }
 
 func (a *Analyzer) DiagnoseNode(node *v1.Node) *Report {
@@ -159,53 +145,4 @@ func (a *Analyzer) DiagnoseNodeMulti(node *v1.Node) *Report {
 
 	return report
 
-}
-
-func BuildPVAffinity(clientset *kubernetes.Clientset, pod *v1.Pod) []*PVCStatus {
-
-	var pvAffinity []*PVCStatus
-	for _, volume := range pod.Spec.Volumes {
-		if volume.PersistentVolumeClaim == nil || volume.PersistentVolumeClaim.ClaimName == "" {
-			continue
-		}
-
-		pvcName := volume.PersistentVolumeClaim.ClaimName
-
-		pvc, err := clientset.CoreV1().PersistentVolumeClaims(pod.Namespace).Get(context.Background(), pvcName, metav1.GetOptions{})
-		if err != nil {
-			continue
-		}
-
-		pv, err := clientset.CoreV1().PersistentVolumes().Get(context.Background(), pvc.Spec.VolumeName, metav1.GetOptions{})
-		if err != nil {
-			continue
-		}
-
-		pvAffinity = append(pvAffinity, &PVCStatus{
-			Name:             pvcName,
-			PVName:           pv.Name,
-			PVVolumeAffinity: pv.Spec.NodeAffinity,
-		})
-	}
-
-	return pvAffinity
-}
-
-func BuildResourceList(pod *v1.Pod) framework.ResourceList {
-
-	reqs, limits := framework.GetPodsTotalRequestsAndLimits(&v1.PodList{
-		Items: []v1.Pod{*pod},
-	})
-
-	result := make(framework.ResourceList)
-	for name, req := range reqs {
-		limit := limits[name]
-		result[name.String()] = &framework.Resource{
-			Name:     name.String(),
-			Requests: req.Value(),
-			Limits:   limit.Value(),
-		}
-
-	}
-	return result
 }

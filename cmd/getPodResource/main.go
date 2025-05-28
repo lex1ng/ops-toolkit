@@ -8,7 +8,7 @@ import (
 func NewGetPodResourceCommand() *cobra.Command {
 	opts := options.NewPodResourceOptions()
 	cmd := &cobra.Command{
-		Use:          "getPodResource",
+		Use:          "enhanced-top",
 		Short:        "get Pod Resource",
 		Long:         `get Pod Resource`,
 		SilenceUsage: true,

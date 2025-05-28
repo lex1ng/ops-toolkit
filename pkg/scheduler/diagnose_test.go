@@ -155,7 +155,6 @@ func TestAnalyzer_checkUnSchedulableNode(t *testing.T) {
 				Namespace:              tt.fields.Namespace,
 				PodName:                tt.fields.PodName,
 				TargetConditions:       tt.fields.TargetConditions,
-				NodeReport:             tt.fields.NodeReport,
 				allNodes:               tt.fields.allNodes,
 				interPodAffinityPlugin: tt.fields.interPodAffinityPlugin,
 			}
@@ -254,7 +253,6 @@ func TestAnalyzer_checkNodeSelector(t *testing.T) {
 				Namespace:              tt.fields.Namespace,
 				PodName:                tt.fields.PodName,
 				TargetConditions:       tt.fields.TargetConditions,
-				NodeReport:             tt.fields.NodeReport,
 				allNodes:               tt.fields.allNodes,
 				interPodAffinityPlugin: tt.fields.interPodAffinityPlugin,
 			}
@@ -419,7 +417,6 @@ func TestAnalyzer_checkTaints(t *testing.T) {
 				Namespace:              tt.fields.Namespace,
 				PodName:                tt.fields.PodName,
 				TargetConditions:       tt.fields.TargetConditions,
-				NodeReport:             tt.fields.NodeReport,
 				allNodes:               tt.fields.allNodes,
 				interPodAffinityPlugin: tt.fields.interPodAffinityPlugin,
 			}
@@ -543,7 +540,6 @@ func TestAnalyzer_checkVolumeNodeAffinity(t *testing.T) {
 				Namespace:              tt.fields.Namespace,
 				PodName:                tt.fields.PodName,
 				TargetConditions:       tt.fields.TargetConditions,
-				NodeReport:             tt.fields.NodeReport,
 				allNodes:               tt.fields.allNodes,
 				interPodAffinityPlugin: tt.fields.interPodAffinityPlugin,
 			}
@@ -676,7 +672,6 @@ func TestAnalyzer_doCheckResource(t *testing.T) {
 				Namespace:              tt.fields.Namespace,
 				PodName:                tt.fields.PodName,
 				TargetConditions:       tt.fields.TargetConditions,
-				NodeReport:             tt.fields.NodeReport,
 				allNodes:               tt.fields.allNodes,
 				interPodAffinityPlugin: tt.fields.interPodAffinityPlugin,
 			}
@@ -820,7 +815,6 @@ func TestAnalyzer_checkNodeAffinity(t *testing.T) {
 				Namespace:              tt.fields.Namespace,
 				PodName:                tt.fields.PodName,
 				TargetConditions:       tt.fields.TargetConditions,
-				NodeReport:             tt.fields.NodeReport,
 				allNodes:               tt.fields.allNodes,
 				interPodAffinityPlugin: tt.fields.interPodAffinityPlugin,
 			}

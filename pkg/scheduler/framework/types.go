@@ -441,3 +441,58 @@ func PrintNodeList(nodeList []*Node) {
 	t.Render()
 
 }
+
+func BuildPodResourceList(pod *v1.Pod) ResourceList {
+
+	reqs, limits := GetPodsTotalRequestsAndLimits(&v1.PodList{
+		Items: []v1.Pod{*pod},
+	})
+
+	result := make(ResourceList)
+	for name, req := range reqs {
+		limit := limits[name]
+		result[name.String()] = &Resource{
+			Name:     name.String(),
+			Requests: req.Value(),
+			Limits:   limit.Value(),
+		}
+
+	}
+	return result
+}
+
+type PVCStatus struct {
+	Name             string
+	PVName           string
+	PVVolumeAffinity *v1.VolumeNodeAffinity
+}
+
+func BuildPVAffinity(clientset *kubernetes.Clientset, pod *v1.Pod) []*PVCStatus {
+
+	var pvAffinity []*PVCStatus
+	for _, volume := range pod.Spec.Volumes {
+		if volume.PersistentVolumeClaim == nil || volume.PersistentVolumeClaim.ClaimName == "" {
+			continue
+		}
+
+		pvcName := volume.PersistentVolumeClaim.ClaimName
+
+		pvc, err := clientset.CoreV1().PersistentVolumeClaims(pod.Namespace).Get(context.Background(), pvcName, metav1.GetOptions{})
+		if err != nil {
+			continue
+		}
+
+		pv, err := clientset.CoreV1().PersistentVolumes().Get(context.Background(), pvc.Spec.VolumeName, metav1.GetOptions{})
+		if err != nil {
+			continue
+		}
+
+		pvAffinity = append(pvAffinity, &PVCStatus{
+			Name:             pvcName,
+			PVName:           pv.Name,
+			PVVolumeAffinity: pv.Spec.NodeAffinity,
+		})
+	}
+
+	return pvAffinity
+}

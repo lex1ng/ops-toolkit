@@ -74,7 +74,7 @@ func printReport(report []*Report) {
 	if widthPerCol > 30 {
 		widthPerCol = 30 // 限制最大单列宽度
 	}
-	fmt.Printf("calculated widthPerCol: %d", widthPerCol)
+	//fmt.Printf("calculated widthPerCol: %d", widthPerCol)
 
 	columnConfigs := make([]table.ColumnConfig, len(ReportHeader))
 	for i := range ReportHeader {

@@ -9,7 +9,7 @@ import (
 func NewWhyCommand() *cobra.Command {
 	opts := options.NewWhyFailedOptions()
 	cmd := &cobra.Command{
-		Use:          "why podname -n namespace",
+		Use:          "schedule-detect podname -n namespace",
 		Short:        "show why pod cannot be scheduled",
 		Long:         `show why pod cannot be scheduled`,
 		SilenceUsage: true,
