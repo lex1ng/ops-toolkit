@@ -133,6 +133,19 @@ func (a *Analyzer) checkNodeAffinity(node *corev1.Node) util.ColorTextList {
 	}
 
 }
+
+func findPVNodeName(inputs []corev1.NodeSelectorRequirement) string {
+	if inputs == nil || len(inputs) == 0 {
+		return ""
+	}
+	for _, input := range inputs {
+		if input.Key == "directpv.min.io/node" || input.Key == "kubernetes.io/hostname" {
+			return input.Values[0]
+		}
+	}
+
+	return ""
+}
 func (a *Analyzer) checkVolumeNodeAffinity(nodeLabels map[string]string) util.ColorTextList {
 	//fmt.Printf("checking volume node affinity...\n")
 	volumeNodeAffinities := a.TargetConditions.PersistentVolumeAffinity
@@ -146,7 +159,8 @@ func (a *Analyzer) checkVolumeNodeAffinity(nodeLabels map[string]string) util.Co
 			node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Labels: nodeLabels}}
 			terms := volumeNodeAffinity.Required
 			//toSave := fmt.Sprintf("pvc %s's pv %s in %s", pvcStatus.Name, pvcStatus.PVName, terms.NodeSelectorTerms[0].MatchExpressions[0].Values[0])
-			toSave := fmt.Sprintf("pv %s in %s", pvcStatus.PVName, terms.NodeSelectorTerms[0].MatchExpressions[0].Values[0])
+			//toSave := fmt.Sprintf("pv %s in %s", pvcStatus.PVName, terms.NodeSelectorTerms[0].MatchExpressions[0].Values[0])
+			toSave := fmt.Sprintf("pv %s in %s", pvcStatus.PVName, findPVNodeName(terms.NodeSelectorTerms[0].MatchExpressions))
 			if matches, err := componenthelpers.MatchNodeSelectorTerms(node, terms); err != nil {
 				matchNodeAffinity = append(matchNodeAffinity, toSave)
 				//fmt.Printf("check match node selector terms on node %s error: %s", node.Name, util.ToJSONIndent(volumeNodeAffinity.Required))

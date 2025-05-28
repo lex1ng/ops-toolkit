@@ -96,10 +96,10 @@ func (a *Analyzer) Why() error {
 
 	var nodeReports []*Report
 	for _, node := range a.allNodes {
-		fmt.Printf("start dianose node %s ****************\n", node.Name)
+		fmt.Printf("start diagnose node %s ****************\n", node.Name)
 		report := a.DiagnoseNodeMulti(&node)
 		nodeReports = append(nodeReports, report)
-		fmt.Printf("dianose node %s done  ****************\n", node.Name)
+		fmt.Printf(" done  ****************\n")
 	}
 	printReport(nodeReports)
 	return nil
