@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/ops-tool/pkg/util"
+	"github.com/schollz/progressbar/v3"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,6 +30,26 @@ type Analyzer struct {
 	interPodAffinityPlugin *interpodaffinity.InterPodAffinity
 }
 
+func filterOutNode(nodeList *v1.NodeList) *v1.NodeList {
+	roles := []string{"node-role.kubernetes.io/controller", "node-role.kubernetes.io/gw", "node-role.kubernetes.io/master"}
+	result := &v1.NodeList{}
+	for _, node := range nodeList.Items {
+
+		want := false
+		for _, role := range roles {
+			if _, ok := node.Labels[role]; ok {
+				want = true
+				break
+			}
+		}
+		if want {
+			result.Items = append(result.Items, node)
+		} else {
+			fmt.Printf("filter out node %s\n", node.Name)
+		}
+	}
+	return result
+}
 func NewAnalyzer(clientSet *kubernetes.Clientset, podNamespace, podName string) (*Analyzer, error) {
 
 	pod, err := clientSet.CoreV1().Pods(podNamespace).Get(context.TODO(), podName, metav1.GetOptions{})
@@ -54,6 +75,8 @@ func NewAnalyzer(clientSet *kubernetes.Clientset, podNamespace, podName string) 
 		return nil, fmt.Errorf("failed to list nodes: %w", err)
 	}
 
+	//allNodes = filterOutNode(allNodes)
+
 	interPodAffinityPlugin := interpodaffinity.NewInterPodAffinityFilter(clientSet, allPods.Items, allNodes.Items)
 
 	return &Analyzer{
@@ -71,11 +94,26 @@ func NewAnalyzer(clientSet *kubernetes.Clientset, podNamespace, podName string) 
 func (a *Analyzer) Why() error {
 
 	var nodeReports []*Report
+
+	bar := progressbar.NewOptions(len(a.allNodes),
+		progressbar.OptionSetDescription("Diagnosing nodes"),
+		progressbar.OptionShowCount(),
+		progressbar.OptionSetWidth(40),
+		progressbar.OptionSetTheme(progressbar.Theme{
+			Saucer:        "#",
+			SaucerHead:    ">",
+			SaucerPadding: "-",
+			BarStart:      "[",
+			BarEnd:        "]",
+		}),
+	)
+
 	for _, node := range a.allNodes {
-		fmt.Printf("start diagnose node %s ****************\n", node.Name)
+		//fmt.Printf("start diagnose node %s ****************\n", node.Name)
 		report := a.DiagnoseNodeMulti(&node)
 		nodeReports = append(nodeReports, report)
-		fmt.Printf("done ****************\n")
+		//fmt.Printf("done ****************\n")
+		bar.Add(1)
 	}
 	printReport(nodeReports)
 	return nil
