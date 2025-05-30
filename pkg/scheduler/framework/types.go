@@ -32,34 +32,20 @@ type Resource struct {
 	Limits           int64   `json:"limits"`
 	LimitsFraction   float64 `json:"limitsFraction"`
 	Capacity         int64   `json:"capacity"`
-}
-
-func (r *Resource) SimpleString() string {
-
-	resourceName := r.Name
-	if resourceName == "cpu" {
-		return fmt.Sprintf("%d", r.Requests)
-	} else if resourceName == "cloudbed.abcstack.com/mlnx_numa0_netdevice" || resourceName == "cloudbed.abcstack.com/mlnx_numa1_netdevice" || resourceName == "cloudbed.abcstack.com/hdd-passthrough" || resourceName == "cloudbed.abcstack.com/ssd-passthrough" {
-		return fmt.Sprintf("%d", int64(r.Requests))
-	} else if resourceName == "ephemeral-storage" {
-		return fmt.Sprintf("%dMi", r.Requests/(1024*1024))
-	}
-	return fmt.Sprintf("%dGi", r.Requests/(1024*1024*1024))
+	Left             int64   `json:"left"`
 }
 
 func (r *Resource) String() string {
-	if r.Capacity == 0 {
-		return "-"
-	}
+
 	resourceName := r.Name
 	if resourceName == "cpu" {
-		return fmt.Sprintf("%d/%d(%d%%)", r.Requests, r.Capacity, int64(r.RequestsFraction))
+		return fmt.Sprintf("%dm", r.Requests)
 	} else if resourceName == "cloudbed.abcstack.com/mlnx_numa0_netdevice" || resourceName == "cloudbed.abcstack.com/mlnx_numa1_netdevice" || resourceName == "cloudbed.abcstack.com/hdd-passthrough" || resourceName == "cloudbed.abcstack.com/ssd-passthrough" {
-		return fmt.Sprintf("%d/%d", int64(r.Requests), r.Capacity)
+		return fmt.Sprintf("%d", int64(r.Requests)/1000)
 	} else if resourceName == "ephemeral-storage" {
-		return fmt.Sprintf("%dMi/%dGi(%d%%)", r.Requests/(1024*1024), r.Capacity/(1024*1024*1024), int64(r.RequestsFraction))
+		return fmt.Sprintf("%.1fGi", float64(r.Requests)/(1000*1024*1024*1024))
 	}
-	return fmt.Sprintf("%dGi/%dGi(%d%%)", r.Requests/(1024*1024*1024), r.Capacity/(1024*1024*1024), int64(r.RequestsFraction))
+	return fmt.Sprintf("%.1fGi", float64(r.Requests)/(1000*1024*1024*1024))
 }
 
 type ResourceList map[string]*Resource
@@ -96,8 +82,14 @@ func (nr *Node) String() []string {
 
 	res := []string{strings.Split(nr.Name, "-")[0]}
 	for _, resourceName := range ResourceNames {
-		if _, ok := nr.AllocatedResourceMap[resourceName]; ok {
-			res = append(res, nr.AllocatedResourceMap[resourceName].String())
+		if cur, ok := nr.AllocatedResourceMap[resourceName]; ok {
+			//res = append(res, nr.AllocatedResourceMap[resourceName].String())
+			if cur.Capacity == 0 {
+				res = append(res, "-")
+				continue
+			}
+			capacity := &Resource{Name: cur.Name, Requests: cur.Capacity}
+			res = append(res, fmt.Sprintf("%s/%s(%d%%)", nr.AllocatedResourceMap[resourceName].String(), capacity.String(), int64(cur.RequestsFraction)))
 		} else {
 			res = append(res, "-")
 		}
@@ -380,14 +372,14 @@ func resourceListToAllocatedResource(reqs, limits, allocatables map[v1.ResourceN
 		request, limit := reqs[name], limits[name]
 		requestFraction := float64(request.Value()) / float64(allocatable.Value()) * 100
 		limitFraction := float64(limit.Value()) / float64(allocatable.Value()) * 100
-
 		result[name.String()] = &Resource{
 			Name:             name.String(),
-			Requests:         request.Value(),
+			Requests:         request.MilliValue(),
 			RequestsFraction: requestFraction,
-			Limits:           limit.Value(),
+			Limits:           limit.MilliValue(),
 			LimitsFraction:   limitFraction,
-			Capacity:         allocatable.Value(),
+			Capacity:         allocatable.MilliValue(),
+			Left:             allocatable.MilliValue() - request.MilliValue(),
 		}
 	}
 	return result
@@ -453,8 +445,8 @@ func BuildPodResourceList(pod *v1.Pod) ResourceList {
 		limit := limits[name]
 		result[name.String()] = &Resource{
 			Name:     name.String(),
-			Requests: req.Value(),
-			Limits:   limit.Value(),
+			Requests: req.MilliValue(),
+			Limits:   limit.MilliValue(),
 		}
 
 	}

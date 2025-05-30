@@ -195,16 +195,18 @@ func (a *Analyzer) doCheckResource(want, have framework.ResourceList) util.Color
 	for k, v := range want {
 		reason := ""
 		if h, ok := have[k]; !ok {
-			reason = fmt.Sprintf("%s: want %s, have 0", k, v.SimpleString())
+			reason = fmt.Sprintf("%s: want %s, have 0", k, v)
 		} else {
 			if h.Requests+v.Requests > h.Capacity {
-				reason = fmt.Sprintf("%s: want %s, have %d left", k, v.SimpleString(), h.Capacity-h.Requests)
+				//reason = fmt.Sprintf("%s: want %s, have %d left", k, v.String(), float64(h.Capacity*1000-h.Requests))
+				left := &framework.Resource{Name: h.Name, Requests: h.Left}
+				reason = fmt.Sprintf("%s: want %s, have %s left", k, v, left)
 			}
 		}
 		if reason != "" {
 			notMeetResource = append(notMeetResource, reason)
 		} else {
-			meetResource = append(meetResource, fmt.Sprintf("%s: have %s", k, v.SimpleString()))
+			meetResource = append(meetResource, fmt.Sprintf("%s: want %s", k, v))
 		}
 	}
 	result := util.ColorTextList{}
