@@ -114,7 +114,7 @@ func (a *Analyzer) checkNodeAffinity(node *corev1.Node) util.ColorTextList {
 	}
 	nodeAffinityRequired := nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
 
-	if nodeAffinityRequired == nil {
+	if nodeAffinityRequired == nil || nodeAffinityRequired.NodeSelectorTerms == nil || len(nodeAffinityRequired.NodeSelectorTerms) == 0 {
 		return nil
 	}
 

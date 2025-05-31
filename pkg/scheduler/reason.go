@@ -82,7 +82,7 @@ func printReport(report []*Report) {
 			Number: i + 1, // 列号从 1 开始
 			//Align:       text.AlignLeft, // 设置居中对齐
 			//AlignHeader: text.AlignLeft, // 设置居中对齐
-			WidthMax: 33,
+			WidthMax: widthPerCol,
 		}
 
 	}

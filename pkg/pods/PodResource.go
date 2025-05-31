@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/jedib0t/go-pretty/v6/text"
 	"github.com/ops-tool/pkg/util"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -124,8 +125,9 @@ func (pl PodResourceList) Print() {
 	for _, pr := range pl {
 		t.AppendRow(util.ListToRow(pr.ToStringList()))
 	}
-
-	t.SetStyle(table.StyleRounded)        // 边框样式
+	style := table.StyleRounded
+	style.Format.Header = text.FormatDefault
+	t.SetStyle(style)                     // 边框样式
 	t.Style().Options.SeparateRows = true // 行分隔线
 	t.Render()
 	//fmt.Printf("Namespace/PodName,NodeName,CPURequest(m),CPULimit(m),CPUUsage(m),MemRequest(Mi),MemLimit(Mi),MemUsage(Mi)\n")

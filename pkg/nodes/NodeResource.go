@@ -5,10 +5,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-var (
-	printResourceNames = []string{"cpu", "memory", "ephemeral-storage", "hugepages-1Gi", "hugepages-2Mi", "mlnx_numa0_netdevice", "mlnx_numa1_netdevice", "hdd-passthrough", "ssd-passthrough"}
-)
-
 type NodeResourceReporter struct {
 	ClientSet *kubernetes.Clientset
 }
