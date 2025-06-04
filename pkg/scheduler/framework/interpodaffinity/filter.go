@@ -362,14 +362,16 @@ func satisfyPodAffinity(state *preFilterState, nodeInfo *v1.Node) []string {
 		if topologyValue, ok := nodeInfo.Labels[term.TopologyKey]; ok {
 			tp := topologyPair{key: term.TopologyKey, value: topologyValue}
 			if state.affinityCounts[tp] <= 0 {
+				notInNodeTopologyKey = append(notInNodeTopologyKey, fmt.Sprintf("%s", term.Selector))
 				podsExist = false
 			} else {
-				inNodeTopologyKey = append(inNodeTopologyKey, fmt.Sprintf("%s:%s", term.TopologyKey, topologyValue))
+				inNodeTopologyKey = append(inNodeTopologyKey, fmt.Sprintf("%s", term.Selector))
 			}
 		} else {
 			// All topology labels must exist on the node.
-			notInNodeTopologyKey = append(notInNodeTopologyKey, fmt.Sprintf("%s", term.TopologyKey))
+			//notInNodeTopologyKey = append(notInNodeTopologyKey, fmt.Sprintf("%s:%s", term.TopologyKey, topologyValue))
 			//return false
+			return []string{"not match topology key"}
 		}
 	}
 	if len(notInNodeTopologyKey) > 0 {
@@ -400,9 +402,9 @@ func satisfyPodAntiAffinity(state *preFilterState, nodeInfo *v1.Node) []string {
 			if topologyValue, ok := nodeInfo.Labels[term.TopologyKey]; ok {
 				tp := topologyPair{key: term.TopologyKey, value: topologyValue}
 				if state.antiAffinityCounts[tp] > 0 {
-					notPassAntiAffinity = append(notPassAntiAffinity, fmt.Sprintf("%s:%s,", term.TopologyKey, topologyValue))
+					notPassAntiAffinity = append(notPassAntiAffinity, fmt.Sprintf("%s", term.Selector))
 				} else {
-					passAntiAffinity = append(passAntiAffinity, fmt.Sprintf("%s:%s,", term.TopologyKey, topologyValue))
+					passAntiAffinity = append(passAntiAffinity, fmt.Sprintf("%s", term.Selector))
 				}
 			}
 		}
