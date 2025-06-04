@@ -4,6 +4,7 @@ import (
 	"github.com/ops-tool/cmd/getNodeResource"
 	"github.com/ops-tool/cmd/getPodResource"
 	"github.com/ops-tool/cmd/why"
+	"github.com/ops-tool/pkg/version"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/util/homedir"
 	"os"
@@ -19,6 +20,11 @@ func main() {
 		Short: "Kubernetes operations tool-kit",
 		Long:  "maintained by cloudbed team",
 		// 不定义 Run 函数，强制用户必须使用子命令
+		RunE: func(cmd *cobra.Command, args []string) error {
+
+			version.PrintAndExitIfRequested()
+			return nil
+		},
 	}
 
 	rootCmd.PersistentFlags().StringVarP(&kubeconfig, "kubeconfig", "k", filepath.Join(homedir.HomeDir(), ".kube", "config"), "Kubeconfig 文件路径")
@@ -26,7 +32,7 @@ func main() {
 	rootCmd.AddCommand(getNodeResource.NewGetNodeResourceCommand())
 	rootCmd.AddCommand(getPodResource.NewGetPodResourceCommand())
 	rootCmd.AddCommand(why.NewWhyCommand())
-
+	version.AddFlags(rootCmd.PersistentFlags())
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}

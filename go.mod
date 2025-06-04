@@ -7,9 +7,11 @@ toolchain go1.22.5
 require (
 	github.com/360EntSecGroup-Skylar/excelize/v2 v2.0.0
 	github.com/fatih/color v1.18.0
+	github.com/gosuri/uitable v0.0.4
 	github.com/jedib0t/go-pretty/v6 v6.6.1
 	github.com/schollz/progressbar/v3 v3.18.0
 	github.com/spf13/cobra v1.8.1
+	github.com/spf13/pflag v1.0.5
 	golang.org/x/term v0.28.0
 	k8s.io/api v0.31.2
 	k8s.io/apimachinery v0.31.2
@@ -47,7 +49,6 @@ require (
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	golang.org/x/net v0.26.0 // indirect
 	golang.org/x/oauth2 v0.21.0 // indirect
