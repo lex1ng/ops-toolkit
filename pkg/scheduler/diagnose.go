@@ -162,6 +162,11 @@ func (a *Analyzer) checkVolumeNodeAffinity(nodeLabels map[string]string) util.Co
 		if pvcStatus == nil {
 			continue
 		}
+		if pvcStatus.PVName == "" || pvcStatus.PVError != "" {
+			toSave := pvcStatus.PVError
+			notMatchNodeAffinity = append(notMatchNodeAffinity, toSave)
+			continue
+		}
 		volumeNodeAffinity := pvcStatus.PVVolumeAffinity
 		if volumeNodeAffinity.Required != nil {
 			node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Labels: nodeLabels}}

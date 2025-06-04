@@ -457,6 +457,7 @@ type PVCStatus struct {
 	Name             string
 	PVName           string
 	PVVolumeAffinity *v1.VolumeNodeAffinity
+	PVError          string
 }
 
 func BuildPVAffinity(clientset *kubernetes.Clientset, pod *v1.Pod) []*PVCStatus {
@@ -473,9 +474,24 @@ func BuildPVAffinity(clientset *kubernetes.Clientset, pod *v1.Pod) []*PVCStatus 
 		if err != nil {
 			continue
 		}
-
+		// should show the reason if pv is not exist.
+		if pvc.Spec.VolumeName == "" {
+			pvAffinity = append(pvAffinity, &PVCStatus{
+				Name:             pvcName,
+				PVName:           "",
+				PVVolumeAffinity: &v1.VolumeNodeAffinity{},
+				PVError:          fmt.Sprintf("pvc %s's pv not found", pvcName),
+			})
+			continue
+		}
 		pv, err := clientset.CoreV1().PersistentVolumes().Get(context.Background(), pvc.Spec.VolumeName, metav1.GetOptions{})
 		if err != nil {
+			pvAffinity = append(pvAffinity, &PVCStatus{
+				Name:             pvcName,
+				PVName:           "",
+				PVVolumeAffinity: &v1.VolumeNodeAffinity{},
+				PVError:          fmt.Sprintf("pvc %s's pv not found", pvcName),
+			})
 			continue
 		}
 
